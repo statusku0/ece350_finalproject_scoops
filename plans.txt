@@ -1,7 +1,7 @@
 - always start/end every function by saving/loading $ra and s registers
 - can simulate keyboard input on mars
-- implement clearing screen
-- define start/end pixel location
+- define screen size
+- when initializing objects, store memory location in s registers and refer to those s registers when getting objects
 
 - Object attributes:
 - length
@@ -9,14 +9,6 @@
 - pixel location of upper left corner
 - etc.
 
-- drawObject()
-- Inputs: a0 = memory location of object, a1 = color
-- Output: draw object
-
 - doesCollide()
 - Inputs: a0 = memory location of object1, a1 = memory location of object2
 - Output: v0 = 1 if collision, v0 = 0 otherwise
-
-- changeObject()
-- Inputs: a0 = memory location of object, a1 = key1 input, etc.
-- Output: modify object attributes in response to key input

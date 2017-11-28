@@ -1,0 +1,20 @@
+- always start/end every function by saving/loading $ra and s registers
+- can simulate keyboard input on mars
+
+- Object attributes:
+- length
+- width
+- pixel location of upper left corner
+- etc.
+
+- drawObject()
+- Inputs: a0 = memory location of object, a1 = color
+- Output: draw object
+
+- doesCollide()
+- Inputs: a0 = memory location of object1, a1 = memory location of object2
+- Output: v0 = 1 if collision, v0 = 0 otherwise
+
+- changeObject()
+- Inputs: a0 = memory location of object, a1 = key1 input, etc.
+- Output: modify object attributes in response to key input

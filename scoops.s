@@ -41,7 +41,7 @@ main:
 		add $t1, $v0, $v1				# increment heap pointer
 		sw $t1, 8($t0)					# save heap pointer
 
-		#-----$s0 now refers to the block created above-----#
+		#-----$s1 now refers to the block created above-----#
 		add $s1, $zero, $v0 			# save block mem location
 
 
@@ -61,8 +61,8 @@ move_block_across_screen:
 		addi $a1, $zero, 0x000000ff		# set block to be blue
 		jal drawBlock
 
-		addi $a0, $zero, 100			
-		jal wait  						# wait 100 cycles
+		addi $a0, $zero, 100000			
+		jal wait  						# wait 100000 cycles
 
 		add $a0, $zero, $s0
 		jal eraseBlock

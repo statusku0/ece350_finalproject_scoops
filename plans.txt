@@ -2,6 +2,7 @@
 - can simulate keyboard input on mars
 - define screen size
 - when initializing objects, store memory location in s registers and refer to those s registers when getting objects
+- subclasses can reuse parent constructor and then add to its memory space
 
 - Object attributes:
 - length

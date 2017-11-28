@@ -1,5 +1,7 @@
 - always start/end every function by saving/loading $ra and s registers
 - can simulate keyboard input on mars
+- implement clearing screen
+- define start/end pixel location
 
 - Object attributes:
 - length

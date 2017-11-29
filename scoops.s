@@ -44,6 +44,20 @@ main:
 		#-----$s1 now refers to the block created above-----#
 		add $s1, $zero, $v0 			# save block mem location
 
+		#-----Instantiates a block object----#
+		add $a0, $zero, $t1				# set mem location of block
+		addi $a1, $zero, 3				# set block num of rows (in pixels)
+		addi $a2, $zero, 4				# set block num of columns (in pixels)
+		addi $a3, $zero, 0x100101a0		# set block upper left corner
+		jal constructBlock			    # construct block
+
+		#-----Increments end-of-heap pointer-----#
+		add $t1, $v0, $v1				# increment heap pointer
+		sw $t1, 8($t0)					# save heap pointer
+
+		#-----$s1 now refers to the block created above-----#
+		add $s2, $zero, $v0 			# save block mem location
+
 
 #-----Life Cycle of Block-----#
 # 1. constructBlock
@@ -60,6 +74,10 @@ move_block_across_screen:
 		addi $a1, $zero, 0x000000ff		# set block to be blue
 		jal drawBlock
 
+		add $a0, $zero, $s2
+		addi $a1, $zero, 0x0000f0ff		# set block to be blue
+		jal drawBlock
+
 	    addi $t0, $zero, 0xffff0004
 	    lw $a1, 0($t0)					# get keyboard input
 		add $a0, $zero, $s0
@@ -70,6 +88,11 @@ move_block_across_screen:
 	    add $a0, $zero, $s1
 		jal modifyBlock
 
+		addi $t0, $zero, 0xffff0004
+	    lw $a1, 0($t0)					# get keyboard input
+	    add $a0, $zero, $s2
+		jal modifyBlock
+
 		addi $a0, $zero, 10000			
 		jal wait  						# wait 10000 cycles
 
@@ -78,7 +101,7 @@ move_block_across_screen:
 
 #------BLOCK OBJECT METHODS-----#
 
-# a0 = mem location, a1 = num of rows, a2 = num of columns, a3 = pixel location of upper left corner
+# a0 = mem location, a1 = num of rows, a2 = num of columns, a3 = pixel location of upper left corner, v0 = mem location, v1 = size of object (bytes)
 constructBlock:							# acts as the "constructor" for the block object
 		addi $sp, $sp, -36
 		sw $ra, 0($sp)

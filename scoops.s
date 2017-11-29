@@ -174,7 +174,7 @@ drawBlock_helper2:
 
 #--------------#
 
-# a0 = mem location of block
+# a0 = mem location of block, a1 = color (probably black), a2 = column to erase
 eraseBlock:
 		addi $sp, $sp, -36
 		sw $ra, 0($sp)
@@ -187,10 +187,43 @@ eraseBlock:
 		sw $s6, 28($sp)
 		sw $s7, 32($sp)
 
-		addi $a1, $zero, 0x00000000		# set second arg to black
-		jal drawBlock
+		addi $t0, $zero, 0x10000000
+		lw $t1, 4($t0)					# get screen column length
 
-		lw $ra, 0($sp)
+		addi $t3, $zero, 0				# init counter for column
+		addi $t4, $zero, 0				# init counter for row
+
+		lw $t5, 0($a0)					# get block num of rows
+		lw $t6, 4($a0)					# get block num of columns
+		lw $t7, 8($a0)					# get block upper left corner location
+
+		add $a0, $zero, $t7 			# set a0 to upper left corner location
+
+eraseBlock_helper1:
+		addi $t4, $zero, 0 				# reset row counter
+
+		addi $sp, $sp, -4
+		sw $a0, 0($sp)					# save a0 from helper1
+
+		bne $t3, $a2, eraseBlock_not_coloring # if column counter doesn't match a2, proceed to next column
+
+eraseBlock_helper2:
+		jal colorPixel					# color pixel
+		addi $t4, $t4, 1				# increment row counter
+		add $a0, $a0, $t1				# move to pixel + screen 
+
+		bne $t4, $t5, eraseBlock_helper2 # if row counter != block num of rows, keep looping in inner loop
+
+eraseBlock_not_coloring:
+		lw $a0, 0($sp)					# restore a0 from helper1
+		addi $sp, $sp, 4				
+
+		addi $t3, $t3, 1				# increment column counter
+		add $a0, $a0, 4					# move to next pixel
+
+		bne $t3, $t6, eraseBlock_helper1 # if column counter != block num of columns, keep looping in outer loop
+
+		lw $ra, 0($sp)					# else, done with drawBlock
 		lw $s0, 4($sp)
 		lw $s1, 8($sp)
 		lw $s2, 12($sp)
@@ -202,6 +235,35 @@ eraseBlock:
 		addi $sp, $sp, 36
 
 		jr $ra
+
+# # a0 = mem location of block
+# eraseBlock:
+# 		addi $sp, $sp, -36
+# 		sw $ra, 0($sp)
+# 		sw $s0, 4($sp)
+# 		sw $s1, 8($sp)
+# 		sw $s2, 12($sp)
+# 		sw $s3, 16($sp)
+# 		sw $s4, 20($sp)
+# 		sw $s5, 24($sp)
+# 		sw $s6, 28($sp)
+# 		sw $s7, 32($sp)
+
+# 		addi $a1, $zero, 0x00000000		# set second arg to black
+# 		jal drawBlock
+
+# 		lw $ra, 0($sp)
+# 		lw $s0, 4($sp)
+# 		lw $s1, 8($sp)
+# 		lw $s2, 12($sp)
+# 		lw $s3, 16($sp)
+# 		lw $s4, 20($sp)
+# 		lw $s5, 24($sp)
+# 		lw $s6, 28($sp)
+# 		lw $s7, 32($sp)
+# 		addi $sp, $sp, 36
+
+# 		jr $ra
 
 #--------------#
 
@@ -218,21 +280,39 @@ modifyBlock:
 		sw $s6, 28($sp)
 		sw $s7, 32($sp)
 
-		addi $t1, $zero, 97
-	    bne $a1, $t1, modifyBlock_cleanup # if keyboard input not equal to "a", don't do anything
+		addi $t1, $zero, 100
+	    bne $a1, $t1, modifyBlock_check2 # if keyboard input not equal to "d", go to next check
 
 	    addi $sp, $sp, -4
 		sw $a0, 36($sp)
+		addi $a1, $zero, 0x00000000		# set second arg to black
+		addi $a2, $zero, 0				# set to erase column 0
 		jal eraseBlock					# erase old block
 		lw $a0, 36($sp)
 		addi $sp, $sp, 4
 
 		lw $t0, 8($a0)					# get location of upper left corner
-		addi $t0, $t0, 4				# increment block location by 1 pixel
+		addi $t0, $t0, 4				# increment block location RIGHT by 1 pixel
+		sw $t0, 8($a0)					# save block location
+
+modifyBlock_check2:
+		addi $t2, $zero, 97
+		bne $a1, $t2, modifyBlock_cleanup # if keyboard input not equal to "a", don't do anything
+
+		addi $sp, $sp, -4
+		sw $a0, 36($sp)
+		addi $a1, $zero, 0x00000000		# set second arg to black
+		lw $t2, 4($a0)					# set to erase last column of block
+		addi $a2, $t2, -1				# eraseBlock uses "start index at 0" convention
+		jal eraseBlock					# erase old block
+		lw $a0, 36($sp)
+		addi $sp, $sp, 4
+
+		lw $t0, 8($a0)					# get location of upper left corner
+		addi $t0, $t0, -4				# increment block location LEFT by 1 pixel
 		sw $t0, 8($a0)					# save block location
 
 modifyBlock_cleanup:
-
 		lw $ra, 0($sp)
 		lw $s0, 4($sp)
 		lw $s1, 8($sp)

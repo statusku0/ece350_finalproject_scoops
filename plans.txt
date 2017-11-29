@@ -1,16 +1,33 @@
 - always start/end every function by saving/loading $ra and s registers
-- can simulate keyboard input on mars
-- define screen size
 - when initializing objects, store memory location in s registers and refer to those s registers when getting objects
 - subclasses can reuse parent constructor and then add to its memory space
-- idea: the more objects collected, block more and more of the screen from the top to make it harder for the player
 
-- Object attributes:
-- length
-- width
-- pixel location of upper left corner
-- etc.
 
-- doesCollide()
-- Inputs: a0 = memory location of object1, a1 = memory location of object2
+- idea: the more good objects collected, block more and more of the screen from the top to make it harder for the player
+- idea: the more bad objects collected, the slower the platform moves?
+
+- doesCollide(Block block1, Block block2)
+- Inputs: a0 = memory location of block1, a1 = memory location of block2
 - Output: v0 = 1 if collision, v0 = 0 otherwise
+
+- Class: Block:
+  - row size
+  - col size
+  - pixel location of upper left corner
+  
+  - Block.constructBlock()
+  - Block.drawBlock()
+  - Block.moveDown(Block, interval), Block.moveLeft(Block), Block.moveRight(Block)
+      - takes a Block and modifies its upper left corner field 
+      - interval: amount to move block by
+  
+      Subclass: Platform:
+        - uses same Block constructor
+        - modifyPlatform(Platform): use Block.moveLeft(Block) and Block.moveRight(Block)
+      
+      Subclass: Food:
+        - uses same Block constructor
+        - modifyFood(Food, interval): use Block.moveDown(Block, interval)
+
+- Goals:
+- By Friday: Moving platform, falling objects (good and bad), collision detection

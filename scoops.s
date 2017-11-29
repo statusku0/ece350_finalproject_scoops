@@ -48,9 +48,8 @@ main:
 #-----Life Cycle of Block-----#
 # 1. constructBlock
 # 2. drawBlock
-# 3. eraseBlock
-# 4. modifyBlock
-# 5. go to step 2
+# 3. modifyBlock (includes erasing old block)
+# 4. go to step 2
 
 move_block_across_screen:
 		add $a0, $zero, $s0
@@ -61,20 +60,18 @@ move_block_across_screen:
 		addi $a1, $zero, 0x000000ff		# set block to be blue
 		jal drawBlock
 
-		addi $a0, $zero, 100000			
-		jal wait  						# wait 100000 cycles
-
-		add $a0, $zero, $s0
-		jal eraseBlock
-
-		add $a0, $zero, $s1
-		jal eraseBlock
-
+	    addi $t0, $zero, 0xffff0004
+	    lw $a1, 0($t0)					# get keyboard input
 		add $a0, $zero, $s0
 		jal modifyBlock
 
+		addi $t0, $zero, 0xffff0004
+	    lw $a1, 0($t0)					# get keyboard input
 	    add $a0, $zero, $s1
 		jal modifyBlock
+
+		addi $a0, $zero, 10000			
+		jal wait  						# wait 10000 cycles
 
 		j move_block_across_screen
 
@@ -208,7 +205,7 @@ eraseBlock:
 
 #--------------#
 
-# a0 = mem location of block
+# a0 = mem location of block, a1 = keyboard input
 modifyBlock:
 		addi $sp, $sp, -36
 		sw $ra, 0($sp)
@@ -221,9 +218,20 @@ modifyBlock:
 		sw $s6, 28($sp)
 		sw $s7, 32($sp)
 
+		addi $t1, $zero, 97
+	    bne $a1, $t1, modifyBlock_cleanup # if keyboard input not equal to "a", don't do anything
+
+	    addi $sp, $sp, -4
+		sw $a0, 36($sp)
+		jal eraseBlock					# erase old block
+		lw $a0, 36($sp)
+		addi $sp, $sp, 4
+
 		lw $t0, 8($a0)					# get location of upper left corner
 		addi $t0, $t0, 4				# increment block location by 1 pixel
 		sw $t0, 8($a0)					# save block location
+
+modifyBlock_cleanup:
 
 		lw $ra, 0($sp)
 		lw $s0, 4($sp)
@@ -271,7 +279,7 @@ colorPixel:
 
 #--------------#
 
-# a0 = num of cycles to wait for
+# a0 = ASCII char to wait for
 wait:   
 		addi $t1, $zero, 0				# initialize counter
 

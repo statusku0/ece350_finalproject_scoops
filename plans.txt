@@ -6,6 +6,8 @@
 - idea: the more good objects collected, block more and more of the screen from the top to make it harder for the player
 - idea: the more bad objects collected, the slower the platform moves?
 
+- idea: simplify block life cycle to constructBlock() -> modifyBlock() -> wait() -> modifyBlock() -> ... (combine modifyBlock() and drawBlock() -- draw block inside modifyBlock()). 
+
 - doesCollide(Block block1, Block block2)
 - Inputs: a0 = memory location of block1, a1 = memory location of block2
 - Output: v0 = 1 if collision, v0 = 0 otherwise

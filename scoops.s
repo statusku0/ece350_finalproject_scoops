@@ -13,69 +13,50 @@
 main:
 		jal initVars					# initialize constants/global pointers
 
-		addi $t0, $zero, 0x10000000
-		lw $t1, 8($t0)					# get heap pointer
-
 		#-----Instantiates a block object----#
-		add $a0, $zero, $t1				# set mem location of block
-		addi $a1, $zero, 1				# set block num of rows (in pixels)
-		addi $a2, $zero, 5				# set block num of columns (in pixels)
-		addi $a3, $zero, 0x10010000		# set block upper left corner
+		addi $a0, $zero, 1				# set block num of rows (in pixels)
+		addi $a1, $zero, 5				# set block num of columns (in pixels)
+		addi $a2, $zero, 0x10010000		# set block upper left corner
+		addi $a3, $zero, 0x00ff0000     # set block to be red
 		jal constructBlock			    # construct block
-
-		#-----Increments end-of-heap pointer-----#
-		add $t1, $v0, $v1				# increment heap pointer
-		sw $t1, 8($t0)					# save heap pointer
 
 		#-----$s0 now refers to the block created above-----#
 		add $s0, $zero, $v0 			# save block mem location
 
 		#-----Instantiates a block object----#
-		add $a0, $zero, $t1				# set mem location of block
-		addi $a1, $zero, 2				# set block num of rows (in pixels)
-		addi $a2, $zero, 5				# set block num of columns (in pixels)
-		addi $a3, $zero, 0x100100a0		# set block upper left corner
+		addi $a0, $zero, 2				# set block num of rows (in pixels)
+		addi $a1, $zero, 5				# set block num of columns (in pixels)
+		addi $a2, $zero, 0x100100a0		# set block upper left corner
+		addi $a3, $zero, 0x000000ff		# set block to be blue
 		jal constructBlock			    # construct block
-
-		#-----Increments end-of-heap pointer-----#
-		add $t1, $v0, $v1				# increment heap pointer
-		sw $t1, 8($t0)					# save heap pointer
 
 		#-----$s1 now refers to the block created above-----#
 		add $s1, $zero, $v0 			# save block mem location
 
 		#-----Instantiates a block object----#
-		add $a0, $zero, $t1				# set mem location of block
-		addi $a1, $zero, 3				# set block num of rows (in pixels)
-		addi $a2, $zero, 4				# set block num of columns (in pixels)
-		addi $a3, $zero, 0x100101a0		# set block upper left corner
+		addi $a0, $zero, 3				# set block num of rows (in pixels)
+		addi $a1, $zero, 4				# set block num of columns (in pixels)
+		addi $a2, $zero, 0x100101a0		# set block upper left corner
+		addi $a3, $zero, 0x0000f0ff		# set block to be some other color
 		jal constructBlock			    # construct block
 
-		#-----Increments end-of-heap pointer-----#
-		add $t1, $v0, $v1				# increment heap pointer
-		sw $t1, 8($t0)					# save heap pointer
-
-		#-----$s1 now refers to the block created above-----#
+		#-----$s2 now refers to the block created above-----#
 		add $s2, $zero, $v0 			# save block mem location
 
 
 #-----Life Cycle of Block-----#
 # 1. constructBlock
-# 2. drawBlock
-# 3. modifyBlock (includes erasing old block)
-# 4. go to step 2
+# 2. modifyBlock (includes erasing old block and drawing new one)
+# 3. go to step 2
 
 move_block_across_screen:
 		add $a0, $zero, $s0
-		addi $a1, $zero, 0x00ff0000		# set block to be red
 		jal drawBlock
 
 		add $a0, $zero, $s1
-		addi $a1, $zero, 0x000000ff		# set block to be blue
 		jal drawBlock
 
 		add $a0, $zero, $s2
-		addi $a1, $zero, 0x0000f0ff		# set block to be blue
 		jal drawBlock
 
 	    addi $t0, $zero, 0xffff0004
@@ -114,12 +95,20 @@ constructBlock:							# acts as the "constructor" for the block object
 		sw $s6, 28($sp)
 		sw $s7, 32($sp)
 
-		sw $a1, 0($a0)					# save attributes in mem address
-		sw $a2, 4($a0)
-		sw $a3, 8($a0)
+		addi $t0, $zero, 0x10000000
+		lw $t1, 8($t0)					# get heap pointer
 
-		add $v0, $zero, $a0				# output start mem location
-		add $v1, $zero, 12				# output size of object
+		sw $a0, 0($t1)					# save attributes in mem address
+		sw $a1, 4($t1)
+		sw $a2, 8($t1)
+		sw $a3, 12($t1)
+
+		add $v0, $zero, $t1				# output start mem location
+		add $v1, $zero, 16				# output size of object (MAKE SURE THIS IS THE CORRECT SIZE)
+
+		#-----Increments end-of-heap pointer-----#
+		add $t1, $v0, $v1				# increment heap pointer
+		sw $t1, 8($t0)					# save heap pointer
 
 		lw $ra, 0($sp)
 		lw $s0, 4($sp)
@@ -158,6 +147,7 @@ drawBlock:
 		lw $t5, 0($a0)					# get block num of rows
 		lw $t6, 4($a0)					# get block num of columns
 		lw $t7, 8($a0)					# get block upper left corner location
+		lw $t8, 12($a0)					# get block color
 
 		add $a0, $zero, $t7 			# set a0 to upper left corner location
 
@@ -168,6 +158,7 @@ drawBlock_helper1:
 		sw $a0, 0($sp)					# save a0 from helper1
 
 drawBlock_helper2:
+		add $a1, $zero, $t8			    # set pixel color
 		jal colorPixel					# color pixel
 		addi $t4, $t4, 1				# increment row counter
 		add $a0, $a0, $t1				# move to pixel + screen 
@@ -274,39 +265,39 @@ modifyBlock:
 		sw $s6, 28($sp)
 		sw $s7, 32($sp)
 
-		addi $t1, $zero, 100
-	    bne $a1, $t1, modifyBlock_check2 # if keyboard input not equal to "d", go to next check
+		add $s0, $zero, $a0				# save mem location of block to s0 
+		add $s1, $zero, $a1				# save keyboard input to s1
 
-	    addi $sp, $sp, -4
-		sw $a0, 36($sp)
+		addi $t1, $zero, 100
+	    bne $s1, $t1, modifyBlock_check2 # if keyboard input not equal to "d", go to next check
+
+		add $a0, $zero, $s0				# set first arg to block mem location
 		addi $a1, $zero, 0x00000000		# set second arg to black
 		addi $a2, $zero, 0				# set to erase column 0
 		jal eraseBlock					# erase old block
-		lw $a0, 36($sp)
-		addi $sp, $sp, 4
 
-		lw $t0, 8($a0)					# get location of upper left corner
+		lw $t0, 8($s0)					# get location of upper left corner
 		addi $t0, $t0, 4				# increment block location RIGHT by 1 pixel
-		sw $t0, 8($a0)					# save block location
+		sw $t0, 8($s0)					# save block location
 
 modifyBlock_check2:
 		addi $t2, $zero, 97
-		bne $a1, $t2, modifyBlock_cleanup # if keyboard input not equal to "a", don't do anything
+		bne $s1, $t2, modifyBlock_draw # if keyboard input not equal to "a", don't do anything
 
-		addi $sp, $sp, -4
-		sw $a0, 36($sp)
+		add $a0, $zero, $s0				# set first arg to block mem location
 		addi $a1, $zero, 0x00000000		# set second arg to black
-		lw $t2, 4($a0)					# set to erase last column of block
+		lw $t2, 4($s0)					# set to erase last column of block
 		addi $a2, $t2, -1				# eraseBlock uses "start index at 0" convention
 		jal eraseBlock					# erase old block
-		lw $a0, 36($sp)
-		addi $sp, $sp, 4
 
-		lw $t0, 8($a0)					# get location of upper left corner
+		lw $t0, 8($s0)					# get location of upper left corner
 		addi $t0, $t0, -4				# increment block location LEFT by 1 pixel
-		sw $t0, 8($a0)					# save block location
+		sw $t0, 8($s0)					# save block location
 
-modifyBlock_cleanup:
+modifyBlock_draw:
+		add $a0, $zero, $s0
+		jal drawBlock 					# draw new block
+
 		lw $ra, 0($sp)
 		lw $s0, 4($sp)
 		lw $s1, 8($sp)

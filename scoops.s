@@ -50,15 +50,6 @@ main:
 # 3. go to step 2
 
 move_block_across_screen:
-		add $a0, $zero, $s0
-		jal drawBlock
-
-		add $a0, $zero, $s1
-		jal drawBlock
-
-		add $a0, $zero, $s2
-		jal drawBlock
-
 	    addi $t0, $zero, 0xffff0004
 	    lw $a1, 0($t0)					# get keyboard input
 		add $a0, $zero, $s0

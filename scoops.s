@@ -3,6 +3,8 @@
 .text
 		.globl main
 
+# TODO: implement platform moving left (and appearing on right side of screen)
+
 # Bitmap display: 512 by 256 pixels, unit pixel width/height = 32, base address for display = 0x10010000
 
 # Global Mem:
@@ -16,9 +18,9 @@ main:
 		#-----Instantiates a block object----#
 		addi $a0, $zero, 1				# set block num of rows (in pixels)
 		addi $a1, $zero, 5				# set block num of columns (in pixels)
-		addi $a2, $zero, 0x10010000		# set block upper left corner
+		addi $a2, $zero, 0x100101a0		# set block upper left corner
 		addi $a3, $zero, 0x00ff0000     # set block to be red
-		jal constructBlock			    # construct block
+		jal Block_construct			    # construct block
 
 		#-----$s0 now refers to the block created above-----#
 		add $s0, $zero, $v0 			# save block mem location
@@ -28,53 +30,260 @@ main:
 		addi $a1, $zero, 5				# set block num of columns (in pixels)
 		addi $a2, $zero, 0x100100a0		# set block upper left corner
 		addi $a3, $zero, 0x000000ff		# set block to be blue
-		jal constructBlock			    # construct block
+		jal Block_construct			    # construct block
 
 		#-----$s1 now refers to the block created above-----#
 		add $s1, $zero, $v0 			# save block mem location
 
-		#-----Instantiates a block object----#
-		addi $a0, $zero, 3				# set block num of rows (in pixels)
-		addi $a1, $zero, 4				# set block num of columns (in pixels)
-		addi $a2, $zero, 0x100101a0		# set block upper left corner
-		addi $a3, $zero, 0x0000f0ff		# set block to be some other color
-		jal constructBlock			    # construct block
+		#-----Instantiates a Platform object----#
+		addi $a0, $zero, 5				
+		addi $a1, $zero, 0x0000f0ff
+		jal Platform_construct			    # construct platform
 
-		#-----$s2 now refers to the block created above-----#
+		#-----$s2 now refers to the platform created above-----#
 		add $s2, $zero, $v0 			# save block mem location
 
 
 #-----Life Cycle of Block-----#
-# 1. constructBlock
-# 2. modifyBlock (includes erasing old block and drawing new one)
+# 1. Block_construct
+# 2. Block_modify (includes erasing old block and drawing new one)
 # 3. go to step 2
 
 move_block_across_screen:
 	    addi $t0, $zero, 0xffff0004
 	    lw $a1, 0($t0)					# get keyboard input
 		add $a0, $zero, $s0
-		jal modifyBlock
+		jal Block_modify
 
 		addi $t0, $zero, 0xffff0004
 	    lw $a1, 0($t0)					# get keyboard input
 	    add $a0, $zero, $s1
-		jal modifyBlock
+		jal Block_modify
 
 		addi $t0, $zero, 0xffff0004
 	    lw $a1, 0($t0)					# get keyboard input
 	    add $a0, $zero, $s2
-		jal modifyBlock
+		jal Platform_modify
 
 		addi $a0, $zero, 10000			
 		jal wait  						# wait 10000 cycles
 
 		j move_block_across_screen
 
+#------PLATFORM OBJECT METHODS------#
+# a0 = length of platform, a1 = color
+Platform_construct:
+		addi $sp, $sp, -36
+		sw $ra, 0($sp)
+		sw $s0, 4($sp)
+		sw $s1, 8($sp)
+		sw $s2, 12($sp)
+		sw $s3, 16($sp)
+		sw $s4, 20($sp)
+		sw $s5, 24($sp)
+		sw $s6, 28($sp)
+		sw $s7, 32($sp)
+
+		add $s0, $zero, $a0
+		add $s1, $zero, $a1
+
+		add $a0, $zero, 1
+		add $a1, $zero, $s0
+		add $a2, $zero, 0x10010000		# place platform at start of screen
+		add $a3, $zero, $s1
+		jal Block_construct
+
+		lw $ra, 0($sp)
+		lw $s0, 4($sp)
+		lw $s1, 8($sp)
+		lw $s2, 12($sp)
+		lw $s3, 16($sp)
+		lw $s4, 20($sp)
+		lw $s5, 24($sp)
+		lw $s6, 28($sp)
+		lw $s7, 32($sp)
+		addi $sp, $sp, 36
+
+		jr $ra
+
+# a0 = mem location of block, a1 = keyboard input
+Platform_modify:
+		addi $sp, $sp, -36
+		sw $ra, 0($sp)
+		sw $s0, 4($sp)
+		sw $s1, 8($sp)
+		sw $s2, 12($sp)
+		sw $s3, 16($sp)
+		sw $s4, 20($sp)
+		sw $s5, 24($sp)
+		sw $s6, 28($sp)
+		sw $s7, 32($sp)
+
+		add $s0, $zero, $a0				# save mem location of block to s0 
+		add $s1, $zero, $a1				# save keyboard input to s1
+
+		addi $t1, $zero, 100
+	    bne $s1, $t1, Platform_modify_check2 # if keyboard input not equal to "d", go to next check
+
+		add $a0, $zero, $s0				# set first arg to block mem location
+		# addi $a1, $zero, 0x00000000		# set second arg to black
+		# addi $a2, $zero, 0				# set to erase column 0
+		addi $a1, $zero, 0
+		jal Platform_erase					# erase old block
+
+		add $a0, $zero, $s0
+		jal Block_moveRight
+
+Platform_modify_check2:
+		addi $t2, $zero, 97
+		bne $s1, $t2, Platform_modify_draw # if keyboard input not equal to "a", don't do anything
+
+		add $a0, $zero, $s0				# set first arg to block mem location
+		# addi $a1, $zero, 0x00000000		# set second arg to black
+		lw $t2, 4($s0)					# set to erase last column of block
+		addi $a1, $t2, -1				# Block_erase uses "start index at 0" convention
+		jal Platform_erase					# erase old block
+
+		add $a0, $zero, $s0
+		jal Block_moveLeft
+
+Platform_modify_draw:
+		add $a0, $zero, $s0
+		jal Platform_draw 					# draw new block
+
+		lw $ra, 0($sp)
+		lw $s0, 4($sp)
+		lw $s1, 8($sp)
+		lw $s2, 12($sp)
+		lw $s3, 16($sp)
+		lw $s4, 20($sp)
+		lw $s5, 24($sp)
+		lw $s6, 28($sp)
+		lw $s7, 32($sp)
+		addi $sp, $sp, 36
+
+		jr $ra
+
+# a0 = mem location of platform
+Platform_draw:
+		addi $sp, $sp, -36
+		sw $ra, 0($sp)
+		sw $s0, 4($sp)
+		sw $s1, 8($sp)
+		sw $s2, 12($sp)
+		sw $s3, 16($sp)
+		sw $s4, 20($sp)
+		sw $s5, 24($sp)
+		sw $s6, 28($sp)
+		sw $s7, 32($sp)
+
+		add $s0, $zero, $a0
+		add $s3, $zero, $a1
+		add $s4, $zero, $a2
+		add $s5, $zero, $a3
+
+		addi $t0, $zero, 0x10000000
+		lw $t1, 4($t0)					# get screen width
+
+		addi $t3, $zero, 0				# init counter for column
+		addi $t4, $zero, 0				# init counter for row
+
+		lw $t5, 0($s0)					# get block num of rows
+		lw $t6, 4($s0)					# get block num of columns
+		lw $t7, 8($s0)					# get block upper left corner location
+		lw $t8, 12($s0)					# get block color
+
+		add $s1, $zero, $t7 			# set s1 to upper left corner location
+
+		add $t9, $t1, 0x10010000		# get address of end of row
+		blt $t7, $t9, Platform_draw_helper1 # if upper left corner location not past end of row, continue as normal
+		sub $t7, $t7, $t1				# else, move upper corner to corner - row length
+		sw $t7, 8($s0)					# save new upper corner
+
+Platform_draw_helper1:
+		addi $t4, $zero, 0 				# reset row counter
+		add $s2, $zero, $s1
+
+		#---- makes platform stay in one row ----#
+		addi $t0, $zero, 0x10000000
+		lw $t2, 4($t0)					# get screen width
+		add $t9, $t2, 0x10010000		# get address of end of row
+		blt $s2, $t9, Platform_draw_cont # if column not past end of row, continue as normal
+		sub $s2, $s2, $t2				# else, move to column - row length 
+
+Platform_draw_cont:
+		addi $t0, $zero, 1
+		bne $s3, $t0, Platform_draw_helper2 # if "color select column" is not 1, continue as normal
+
+		add $t8, $zero, $s5				# else 
+		bne $t3, $s4, Platform_draw_notColoring # if column counter not equal to select column, skip coloring
+
+Platform_draw_helper2:
+		add $a0, $zero, $s2				# set pixel location
+		add $a1, $zero, $t8			    # set pixel color
+		jal colorPixel					# color pixel
+		addi $t4, $t4, 1				# increment row counter
+		add $s2, $s2, $t1				# move to pixel + screen 
+
+		bne $t4, $t5, Platform_draw_helper2 # if row counter != block num of rows, keep looping in inner loop	
+
+Platform_draw_notColoring:
+		addi $t3, $t3, 1				# increment column counter
+		add $s1, $s1, 4					# move to next pixel
+
+		bne $t3, $t6, Platform_draw_helper1 # if column counter != block num of columns, keep looping in outer loop
+
+		lw $ra, 0($sp)					# else, done with Block_draw
+		lw $s0, 4($sp)
+		lw $s1, 8($sp)
+		lw $s2, 12($sp)
+		lw $s3, 16($sp)
+		lw $s4, 20($sp)
+		lw $s5, 24($sp)
+		lw $s6, 28($sp)
+		lw $s7, 32($sp)
+		addi $sp, $sp, 36
+
+		jr $ra
+
+# a0 = mem location of platform, a1 = column to erase
+Platform_erase:
+		addi $sp, $sp, -36
+		sw $ra, 0($sp)
+		sw $s0, 4($sp)
+		sw $s1, 8($sp)
+		sw $s2, 12($sp)
+		sw $s3, 16($sp)
+		sw $s4, 20($sp)
+		sw $s5, 24($sp)
+		sw $s6, 28($sp)
+		sw $s7, 32($sp)
+
+		add $s0, $zero, $a1
+
+		addi $a1, $zero, 1
+		add $a2, $zero, $s0 
+		add $a3, $zero, 0x00000000
+		jal Platform_draw
+
+		lw $ra, 0($sp)	
+		lw $s0, 4($sp)
+		lw $s1, 8($sp)
+		lw $s2, 12($sp)
+		lw $s3, 16($sp)
+		lw $s4, 20($sp)
+		lw $s5, 24($sp)
+		lw $s6, 28($sp)
+		lw $s7, 32($sp)
+		addi $sp, $sp, 36
+
+		jr $ra
+
 
 #------BLOCK OBJECT METHODS-----#
 
-# a0 = mem location, a1 = num of rows, a2 = num of columns, a3 = pixel location of upper left corner, v0 = mem location, v1 = size of object (bytes)
-constructBlock:							# acts as the "constructor" for the block object
+# a0 = num of rows, a1 = num of columns, a2 = pixel location of upper left corner, a3 = color, v0 = mem location, v1 = size of object (bytes)
+Block_construct:							# acts as the "constructor" for the block object
 		addi $sp, $sp, -36
 		sw $ra, 0($sp)
 		sw $s0, 4($sp)
@@ -116,8 +325,8 @@ constructBlock:							# acts as the "constructor" for the block object
 
 #--------------#
 
-# a0 = mem location of block
-drawBlock:
+# a0 = mem location of block, a1 = color select column, a2 = column to color, a3 = color of selected column 
+Block_draw:
 		addi $sp, $sp, -36
 		sw $ra, 0($sp)
 		sw $s0, 4($sp)
@@ -129,42 +338,50 @@ drawBlock:
 		sw $s6, 28($sp)
 		sw $s7, 32($sp)
 
+		add $s0, $zero, $a0
+		add $s3, $zero, $a1
+		add $s4, $zero, $a2
+		add $s5, $zero, $a3
+
 		addi $t0, $zero, 0x10000000
 		lw $t1, 4($t0)					# get screen column length
 
 		addi $t3, $zero, 0				# init counter for column
 		addi $t4, $zero, 0				# init counter for row
 
-		lw $t5, 0($a0)					# get block num of rows
-		lw $t6, 4($a0)					# get block num of columns
-		lw $t7, 8($a0)					# get block upper left corner location
-		lw $t8, 12($a0)					# get block color
+		lw $t5, 0($s0)					# get block num of rows
+		lw $t6, 4($s0)					# get block num of columns
+		lw $t7, 8($s0)					# get block upper left corner location
+		lw $t8, 12($s0)					# get block color
 
-		add $a0, $zero, $t7 			# set a0 to upper left corner location
+		add $s1, $zero, $t7 			# set s1 to upper left corner location
 
-drawBlock_helper1:
+Block_draw_helper1:
 		addi $t4, $zero, 0 				# reset row counter
+		add $s2, $zero, $s1
 
-		addi $sp, $sp, -4
-		sw $a0, 0($sp)					# save a0 from helper1
+		addi $t0, $zero, 1
+		bne $s3, $t0, Block_draw_helper2 # if "color select column" is not 1, continue as normal
 
-drawBlock_helper2:
+		add $t8, $zero, $s5				# else 
+		bne $t3, $s4, Block_draw_notColoring # if column counter not equal to select column, skip coloring
+
+Block_draw_helper2:
+		add $a0, $zero, $s2				# set pixel location
 		add $a1, $zero, $t8			    # set pixel color
 		jal colorPixel					# color pixel
 		addi $t4, $t4, 1				# increment row counter
-		add $a0, $a0, $t1				# move to pixel + screen 
+		add $s2, $s2, $t1				# move to pixel + screen 
 
-		bne $t4, $t5, drawBlock_helper2 # if row counter != block num of rows, keep looping in inner loop
+		bne $t4, $t5, Block_draw_helper2 # if row counter != block num of rows, keep looping in inner loop	
 
-		lw $a0, 0($sp)					# restore a0 from helper1
-		addi $sp, $sp, 4				
-
+Block_draw_notColoring:
 		addi $t3, $t3, 1				# increment column counter
-		add $a0, $a0, 4					# move to next pixel
+		add $s1, $s1, 4					# move to next pixel
 
-		bne $t3, $t6, drawBlock_helper1 # if column counter != block num of columns, keep looping in outer loop
+		bne $t3, $t6, Block_draw_helper1 # if column counter != block num of columns, keep looping in outer loop
 
-		lw $ra, 0($sp)					# else, done with drawBlock
+		lw $ra, 0($sp)					# else, done with Block_draw
 		lw $s0, 4($sp)
 		lw $s1, 8($sp)
 		lw $s2, 12($sp)
@@ -179,8 +396,8 @@ drawBlock_helper2:
 
 #--------------#
 
-# a0 = mem location of block, a1 = color (probably black), a2 = column to erase
-eraseBlock:
+# a0 = mem location of block, a1 = column to erase
+Block_erase:
 		addi $sp, $sp, -36
 		sw $ra, 0($sp)
 		sw $s0, 4($sp)
@@ -192,43 +409,14 @@ eraseBlock:
 		sw $s6, 28($sp)
 		sw $s7, 32($sp)
 
-		addi $t0, $zero, 0x10000000
-		lw $t1, 4($t0)					# get screen column length
+		add $s0, $zero, $a1
 
-		addi $t3, $zero, 0				# init counter for column
-		addi $t4, $zero, 0				# init counter for row
+		addi $a1, $zero, 1
+		add $a2, $zero, $s0 
+		add $a3, $zero, 0x00000000
+		jal Block_draw
 
-		lw $t5, 0($a0)					# get block num of rows
-		lw $t6, 4($a0)					# get block num of columns
-		lw $t7, 8($a0)					# get block upper left corner location
-
-		add $a0, $zero, $t7 			# set a0 to upper left corner location
-
-eraseBlock_helper1:
-		addi $t4, $zero, 0 				# reset row counter
-
-		addi $sp, $sp, -4
-		sw $a0, 0($sp)					# save a0 from helper1
-
-		bne $t3, $a2, eraseBlock_not_coloring # if column counter doesn't match a2, proceed to next column
-
-eraseBlock_helper2:
-		jal colorPixel					# color pixel
-		addi $t4, $t4, 1				# increment row counter
-		add $a0, $a0, $t1				# move to pixel + screen 
-
-		bne $t4, $t5, eraseBlock_helper2 # if row counter != block num of rows, keep looping in inner loop
-
-eraseBlock_not_coloring:
-		lw $a0, 0($sp)					# restore a0 from helper1
-		addi $sp, $sp, 4				
-
-		addi $t3, $t3, 1				# increment column counter
-		add $a0, $a0, 4					# move to next pixel
-
-		bne $t3, $t6, eraseBlock_helper1 # if column counter != block num of columns, keep looping in outer loop
-
-		lw $ra, 0($sp)					# else, done with drawBlock
+		lw $ra, 0($sp)	
 		lw $s0, 4($sp)
 		lw $s1, 8($sp)
 		lw $s2, 12($sp)
@@ -240,11 +428,12 @@ eraseBlock_not_coloring:
 		addi $sp, $sp, 36
 
 		jr $ra
+
 
 #--------------#
 
 # a0 = mem location of block, a1 = keyboard input
-modifyBlock:
+Block_modify:
 		addi $sp, $sp, -36
 		sw $ra, 0($sp)
 		sw $s0, 4($sp)
@@ -260,34 +449,93 @@ modifyBlock:
 		add $s1, $zero, $a1				# save keyboard input to s1
 
 		addi $t1, $zero, 100
-	    bne $s1, $t1, modifyBlock_check2 # if keyboard input not equal to "d", go to next check
+	    bne $s1, $t1, Block_modify_check2 # if keyboard input not equal to "d", go to next check
 
 		add $a0, $zero, $s0				# set first arg to block mem location
-		addi $a1, $zero, 0x00000000		# set second arg to black
-		addi $a2, $zero, 0				# set to erase column 0
-		jal eraseBlock					# erase old block
+		# addi $a1, $zero, 0x00000000		# set second arg to black
+		# addi $a2, $zero, 0				# set to erase column 0
+		addi $a1, $zero, 0
+		jal Block_erase					# erase old block
 
-		lw $t0, 8($s0)					# get location of upper left corner
-		addi $t0, $t0, 4				# increment block location RIGHT by 1 pixel
-		sw $t0, 8($s0)					# save block location
-
-modifyBlock_check2:
-		addi $t2, $zero, 97
-		bne $s1, $t2, modifyBlock_draw # if keyboard input not equal to "a", don't do anything
-
-		add $a0, $zero, $s0				# set first arg to block mem location
-		addi $a1, $zero, 0x00000000		# set second arg to black
-		lw $t2, 4($s0)					# set to erase last column of block
-		addi $a2, $t2, -1				# eraseBlock uses "start index at 0" convention
-		jal eraseBlock					# erase old block
-
-		lw $t0, 8($s0)					# get location of upper left corner
-		addi $t0, $t0, -4				# increment block location LEFT by 1 pixel
-		sw $t0, 8($s0)					# save block location
-
-modifyBlock_draw:
 		add $a0, $zero, $s0
-		jal drawBlock 					# draw new block
+		jal Block_moveRight
+
+Block_modify_check2:
+		addi $t2, $zero, 97
+		bne $s1, $t2, Block_modify_draw # if keyboard input not equal to "a", don't do anything
+
+		add $a0, $zero, $s0				# set first arg to block mem location
+		# addi $a1, $zero, 0x00000000		# set second arg to black
+		lw $t2, 4($s0)					# set to erase last column of block
+		addi $a1, $t2, -1				# Block_erase uses "start index at 0" convention
+		jal Block_erase					# erase old block
+
+		add $a0, $zero, $s0
+		jal Block_moveLeft
+
+Block_modify_draw:
+		add $a0, $zero, $s0
+		jal Block_draw 					# draw new block
+
+		lw $ra, 0($sp)
+		lw $s0, 4($sp)
+		lw $s1, 8($sp)
+		lw $s2, 12($sp)
+		lw $s3, 16($sp)
+		lw $s4, 20($sp)
+		lw $s5, 24($sp)
+		lw $s6, 28($sp)
+		lw $s7, 32($sp)
+		addi $sp, $sp, 36
+
+		jr $ra
+
+# a0 = mem location of block
+Block_moveRight:
+		addi $sp, $sp, -36
+		sw $ra, 0($sp)
+		sw $s0, 4($sp)
+		sw $s1, 8($sp)
+		sw $s2, 12($sp)
+		sw $s3, 16($sp)
+		sw $s4, 20($sp)
+		sw $s5, 24($sp)
+		sw $s6, 28($sp)
+		sw $s7, 32($sp)
+
+		lw $t0, 8($a0)					# get location of upper left corner
+		addi $t0, $t0, 4				# increment block location RIGHT by 1 pixel
+		sw $t0, 8($a0)					# save block location
+
+		lw $ra, 0($sp)
+		lw $s0, 4($sp)
+		lw $s1, 8($sp)
+		lw $s2, 12($sp)
+		lw $s3, 16($sp)
+		lw $s4, 20($sp)
+		lw $s5, 24($sp)
+		lw $s6, 28($sp)
+		lw $s7, 32($sp)
+		addi $sp, $sp, 36
+
+		jr $ra
+
+# a0 = mem location of block
+Block_moveLeft:
+		addi $sp, $sp, -36
+		sw $ra, 0($sp)
+		sw $s0, 4($sp)
+		sw $s1, 8($sp)
+		sw $s2, 12($sp)
+		sw $s3, 16($sp)
+		sw $s4, 20($sp)
+		sw $s5, 24($sp)
+		sw $s6, 28($sp)
+		sw $s7, 32($sp)
+
+		lw $t0, 8($a0)					# get location of upper left corner
+		addi $t0, $t0, -4				# increment block location LEFT by 1 pixel
+		sw $t0, 8($a0)					# save block location
 
 		lw $ra, 0($sp)
 		lw $s0, 4($sp)

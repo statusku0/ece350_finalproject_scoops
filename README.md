@@ -8,26 +8,26 @@ Global vars:
 0x00000008 = Pointer to end of heap  
   
   
-Block:  
-  Getter methods:  
+- Block:  
+  - Getter methods:  
       (Each takes in 1 input: mem address of Block object)  
       (Each output is in $v0)  
-      Block_getNumRows  
+      - Block_getNumRows  
         - outputs number of rows in block  
-      Block_getNumCols  
+      - Block_getNumCols  
         - outputs number of cols in block  
-      Block_getUpperLeftCorner  
+      - Block_getUpperLeftCorner  
         - outputs mem address of Coordinate object for upper left hand corner  
-      Block_getColor  
+      - Block_getColor  
         - outputs hex value of color of block  
 
-Coordinate:  
-  Getter methods:  
+- Coordinate:  
+  - Getter methods:  
       (Each takes in 1 input: mem address of Coordinate object)     
       (Each output is in $v0)  
-      Coordinate_getXCoord
+      - Coordinate_getXCoord
         - outputs x coord
-      Coordinate_getYCoord
+      - Coordinate_getYCoord
         - outputs y coord
         
 

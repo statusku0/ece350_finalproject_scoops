@@ -58,8 +58,8 @@ move_block_across_screen:
 		addi $a2, $zero, 0x00ffaf0d
 		jal Food_modify
 
-		addi $a0, $zero, 1000			
-		jal wait  						# wait 1000 cycles
+		addi $a0, $zero, 5000			
+		jal wait  						# wait a number of cycles
 
 		j move_block_across_screen
 
@@ -712,35 +712,41 @@ colorRect:
 		add $s1, $zero, $a1				# s1 = y coord of upper left corner
 		add $s2, $zero, $a2				# s2 = num of rows
 		add $s3, $zero, $a3				# s3 = num of columns
-		add $s4, $zero, $v1				# s4 = color
+
+		add $a0, $zero, $s0
+		add $a1, $zero, $s1
+		jal getAddressFromCoordinate
+		add $s4, $zero, $v0				# s4 = address of upper left corner
 
 		addi $s5, $zero, 0				# s5 = row counter
 		addi $s6, $zero, 0				# s6 = column counter
 		add $s7, $zero, $s0			# s7 = x coord
 
-colorRect_loopRow:
-		addi $s6, $zero, 0				# reset column counter
-		add $s7, $zero, $s0				# reset x coord
+		jal getScreenWidthInBytes
+		add $t2, $zero, $v0				# t2 = screen width in bytes
 
 colorRect_loopCol:
 		add $a0, $zero, $s7
 		jal fixXCoord
-		add $s7, $zero, $v0				# fix s7 (x coord)
+		add $t0, $zero, $v0
 
-		add $a0, $zero, $s7
-		add $a1, $zero, $s1
-		add $a2, $zero, $s4
-		jal colorPixel					# color pixel
+		add $t1, $zero, $s4			   # current = s4		
+		addi $s5, $zero, 0			   # reset row counter	   
+
+		blt $t0, $s7, colorRect_adjust # if fixed x coord < original x coord, adjust s7 and s4
+		blt $s7, $t0, colorRect_adjust # if fixed x coord > original x coord, adjust s7 and s4
+
+colorRect_loopRow:
+		sw $v1, 0($t1)					# color pixel
+		addi $s5, $s5, 1				# increment row counter
+		add $t1, $t1, $t2				# increment address by screen width
+		blt $s5, $s2, colorRect_loopRow # if row counter < num of rows, keep looping in loopRow
 
 		addi $s6, $s6, 1				# increment column counter
-		addi $s7, $s7, 1				# increment x coord
+	    addi $s4, $s4, 4				# increment upper left corner forward
+	    addi $s7, $s7, 1				# increment x coord
 
-		blt $s6, $s3, colorRect_loopCol # if column counter < num of columns, keep looping in loopCol
-
-		addi $s5, $s5, 1				# increment row counter
-		addi $s1, $s1, 1				# increment y coord
-
-		blt $s5, $s2, colorRect_loopRow # if row counter < num of rows, keep looping in loopRow
+		blt $s6, $s3, colorRect_loopCol # if column counter < num of cols, keep looping in loopCol
 
 		lw $ra, 0($sp)					# else, done with colorRect
 		lw $s0, 4($sp)
@@ -755,5 +761,14 @@ colorRect_loopCol:
 
 		jr $ra
 
+colorRect_adjust:
+		add $s7, $zero, $t0				# make s7 equal to new x coord
+		add $a0, $zero, $s7
+		add $a1, $zero, $s1
+		jal getAddressFromCoordinate
+		add $s4, $zero, $v0				# adjust upper left corner
+		add $t1, $zero, $s4				# adjust t1 = s4
+
+		j colorRect_loopRow
 		
 

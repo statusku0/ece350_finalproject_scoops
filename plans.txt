@@ -31,3 +31,10 @@
 
 - Goals:
 - By Friday: Moving platform, falling objects (good and bad), collision detection
+
+
+
+
+
+- create colorRect(upper left corner, length, width, color)
+    - will make drawing/erasing blocks much easier 

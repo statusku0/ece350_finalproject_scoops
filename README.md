@@ -30,6 +30,9 @@ Global vars:
       - Coordinate_getYCoord
         - outputs y coord
         
+  - Conventions:
+      - Upper left hand corner of screen is (0,0), right direction is positive x, down direction is positive y.
+        
 
       
 

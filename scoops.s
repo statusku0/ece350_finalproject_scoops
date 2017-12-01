@@ -667,6 +667,69 @@ colorRect_helper2:
 		addi $sp, $sp, 36
 
 		jr $ra
+		
+		
+#-------detect platform collisions--------#
+#assume that a0 is the platform's memory location and a1 is the random falling object's location
+#TODO: loop through multiple objects
+detect_collisions:
 
+		addi $sp, $sp, -36
+		sw $ra, 0($sp)
+		sw $s0, 4($sp)
+		sw $s1, 8($sp)
+		sw $s2, 12($sp)
+		sw $s3, 16($sp)
+		sw $s4, 20($sp)
+		sw $s5, 24($sp)
+		sw $s6, 28($sp)
+		sw $s7, 32($sp)
+		
+		lw $s0, 8($a0)				# get upper left hand corner of platform
+		lw $s1, 4($a0)				# get num of columns
+		lw $s2, 0($a0)				# get num of rows
+		
+		lw $s3, 8($a1)				# get upper left hand corner of other block
+		lw $s4, 0($a1)				# get num of rows
+		lw $s5, 4($a1)				# get num of columns
+		
+		addi $t0, $zero, 0x10000000
+		lw $s6, 4($t0)					# get screen width
+		
+get_lower_lefthand_corner:
+		add $s3, $s3, $s6                                # add screen width to the upper left hand corner until we get lower left hand corner 
+		addi $t1,$0, 1
+		bne $t1,$s4, get_lower_lefthand_corner		# lower left corner in $s3
+		
+		
+test_collision_left:		
+		add $t2,$s3,$s5					# get lower right corner of block
+		blt $s0,$t2,test_collision_right                # if object's lower right corner > platform's upper left corner
+test_collision_right:
+		add $t3,$s0,$s1					# get upper right corner of platform
+		blt $s3,$t3, have_collision                     # if object's lower left corner < platform's upper right corner  
+		j finished_detecting
+have_collision:  
+		addi $v0, $0, 256				#arbitrary action
+		
+finished_detecting:
+		lw $ra, 0($sp)					
+		lw $s0, 4($sp)
+		lw $s1, 8($sp)
+		lw $s2, 12($sp)
+		lw $s3, 16($sp)
+		lw $s4, 20($sp)
+		lw $s5, 24($sp)
+		lw $s6, 28($sp)
+		lw $s7, 32($sp)
+		addi $sp, $sp, 36
+
+		jr $ra
+		
+		
+		
+		
+		
+							
 		
 

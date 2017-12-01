@@ -23,52 +23,240 @@ main:
 		#-----$s0 now refers to the block created above-----#
 		add $s0, $zero, $v0 			# save block mem location
 
-		#-----Instantiates a Food object----#
-		addi $a0, $zero, 2				# set Food num of rows (in pixels)
-		addi $a1, $zero, 4				# set Food num of columns (in pixels)
-		addi $a2, $zero, 4		
-		addi $a3, $zero, 0    
-		jal Block_construct			    # construct block
+		addi $a0, $zero, 4
+		jal FoodSet_construct
 
-		#-----$s1 now refers to the food created above-----#
-		add $s1, $zero, $v0 			# save food mem location
+		add $s3, $zero, $v0
 
-		#-----Instantiates a Food object----#
-		addi $a0, $zero, 1				# set Food num of rows (in pixels)
-		addi $a1, $zero, 1				# set Food num of columns (in pixels)
-		addi $a2, $zero, 9		
-		addi $a3, $zero, 1    
-		jal Block_construct			    # construct block
+		addi $a0, $zero, 3
+		jal FoodSet_construct
 
-		#-----$s2 now refers to the food created above-----#
-		add $s2, $zero, $v0 			# save food mem location
+		add $s4, $zero, $v0
+
+
+		#-----Set up game clock------#
+		addi $s5, $zero, 0				# s5 = global cycle counter
 
 move_block_across_screen:
+
 	    addi $t0, $zero, 0xffff0004
 	    lw $a1, 0($t0)					# get keyboard input
 		add $a0, $zero, $s0
 		addi $a2, $zero, 0x000000ff
 		jal Block_modify
 
-		add $a0, $zero, $s1
+		add $a0, $zero, $s3
 		addi $a2, $zero, 0x00ff0000
-		jal Food_modify
+		jal FoodSet_modify
 
-		add $a0, $zero, $s2
-		addi $a2, $zero, 0x00ffaf0d
-		jal Food_modify
+		addi $t0, $zero, 5
+		blt $s5, $t0, move_block_across_screen_wait
 
-		addi $a0, $zero, 5000			
+		add $a0, $zero, $s4
+		addi $a2, $zero, 0x00fa0a00
+		jal FoodSet_modify
+
+move_block_across_screen_wait:
+		addi $a0, $zero, 1000			
 		jal wait  						# wait a number of cycles
+		addi $s5, $s5, 1				# increment global counter
 
 		j move_block_across_screen
+
+#------FOODSET OBJECT METHODS------#
+
+# a0 = number of objects in set, v0 = mem location of FoodSet, v1 = size of FoodSet
+FoodSet_construct:
+		addi $sp, $sp, -36
+		sw $ra, 0($sp)
+		sw $s0, 4($sp)
+		sw $s1, 8($sp)
+		sw $s2, 12($sp)
+		sw $s3, 16($sp)
+		sw $s4, 20($sp)
+		sw $s5, 24($sp)
+		sw $s6, 28($sp)
+		sw $s7, 32($sp)
+
+		addi $t0, $zero, 0x10000000
+		lw $s1, 8($t0)					# get heap pointer
+
+		add $s4, $zero, $s1				# s4 = initial heap pointer
+
+		add $s3, $zero, $a0				# s3 = num of objects
+		sw $s3, 0($s1)					# save num of objects
+		addi $s1, $s1, 4				# increment heap pointer
+		sw $s1, 8($t0)					# save heap pointer		
+
+		addi $s0, $zero, 0				# s0 = counter
+		addi $s2, $zero, 0				# s2 used to generate "random" x coord
+
+
+FoodSet_construct_food_loop:
+
+		addi $s2, $s2, 13				
+		add $a0, $zero, $s2
+		jal fixXCoord
+		
+		addi $a0, $zero, 1				# num of rows = 1
+		addi $a1, $zero, 1				# num of cols = 1
+		add $a2, $zero, $v0 			# random x coord			
+		addi $a3, $zero, -1				# y coord of upper left corner = -1
+		jal Food_construct
+
+		add $s1, $v0, $v1				# increment heap pointer
+		sw $s1, 8($t0)					# save heap pointer		
+
+		addi $s0, $s0, 1
+		blt $s0, $s3, FoodSet_construct_food_loop
+
+		addi $t0, $zero, 0x10000000
+		sw $s1, 8($t0)					# save heap pointer
+
+		add $v0, $zero, $s4				# save mem address of FallingSet
+		sub $v1, $s1, $s4				# save size of whole FallingSet
+		
+		lw $ra, 0($sp)
+		lw $s0, 4($sp)
+		lw $s1, 8($sp)
+		lw $s2, 12($sp)
+		lw $s3, 16($sp)
+		lw $s4, 20($sp)
+		lw $s5, 24($sp)
+		lw $s6, 28($sp)
+		lw $s7, 32($sp)
+		addi $sp, $sp, 36
+
+		jr $ra
+
+#---------#
+# a0 = mem location of FoodSet
+FoodSet_reset:
+		addi $sp, $sp, -36
+		sw $ra, 0($sp)
+		sw $s0, 4($sp)
+		sw $s1, 8($sp)
+		sw $s2, 12($sp)
+		sw $s3, 16($sp)
+		sw $s4, 20($sp)
+		sw $s5, 24($sp)
+		sw $s6, 28($sp)
+		sw $s7, 32($sp)
+
+		add $s0, $zero, $a0			# s0 = mem location of FoodSet
+		lw $s1, 0($s0)				# s1 = number of Food objects
+		addi $s0, $s0, 4			# s0 = mem location of Food objects
+
+		addi $s2, $zero, 0			# s2 = counter
+
+		addi $s3, $zero, 0			# s3 used to generate "random" x coord
+
+FoodSet_reset_loop:
+		add $a0, $zero, $s0
+		addi $a1, $zero, -1
+		jal Block_saveYCoordUpperLeft # change y coord of upper left corner to -1
+
+		addi $s3, $s3, 11
+		add $a0, $zero, $s3
+		jal fixXCoord
+		add $a0, $zero, $s0
+		add $a1, $zero, $v0
+		jal Block_saveXCoordUpperLeft # re-randomize x coord			
+		
+		addi $s2, $s2, 1			# increment counter
+		addi $s0, $s0, 16			# increment by size of one Food object
+		blt $s2, $s1, FoodSet_reset_loop
+
+		lw $ra, 0($sp)
+		lw $s0, 4($sp)
+		lw $s1, 8($sp)
+		lw $s2, 12($sp)
+		lw $s3, 16($sp)
+		lw $s4, 20($sp)
+		lw $s5, 24($sp)
+		lw $s6, 28($sp)
+		lw $s7, 32($sp)
+		addi $sp, $sp, 36
+
+		jr $ra
+	
+
+#---------#
+
+# a0 = mem location of FoodSet, a1 = keyboard input, a2 = color
+FoodSet_modify:
+		addi $sp, $sp, -36
+		sw $ra, 0($sp)
+		sw $s0, 4($sp)
+		sw $s1, 8($sp)
+		sw $s2, 12($sp)
+		sw $s3, 16($sp)
+		sw $s4, 20($sp)
+		sw $s5, 24($sp)
+		sw $s6, 28($sp)
+		sw $s7, 32($sp)
+
+		add $s3, $zero, $a2			# s3 = color
+
+		add $s0, $zero, $a0			# s0 = mem location of FoodSet
+		add $s5, $zero, $s0			# s5 = s0
+		lw $s1, 0($s0)				# s1 = number of Food objects
+		addi $s0, $s0, 4			# s0 = mem location of Food objects
+
+		addi $s2, $zero, 0			# s2 = counter
+
+		j FoodSet_modify_reset		# check if FoodSet needs to be reset
+
+FoodSet_modify_Food_modify_loop:
+		add $a0, $zero, $s0
+		add $a2, $zero, $s3
+		jal Food_modify
+		
+		addi $s2, $s2, 1			# increment counter
+		addi $s0, $s0, 16			# increment by size of one Food object
+		blt $s2, $s1, FoodSet_modify_Food_modify_loop
+
+		lw $ra, 0($sp)
+		lw $s0, 4($sp)
+		lw $s1, 8($sp)
+		lw $s2, 12($sp)
+		lw $s3, 16($sp)
+		lw $s4, 20($sp)
+		lw $s5, 24($sp)
+		lw $s6, 28($sp)
+		lw $s7, 32($sp)
+		addi $sp, $sp, 36
+
+		jr $ra
+
+FoodSet_modify_reset:
+		add $a0, $zero, $s0
+		jal Block_getYCoordUpperLeft
+
+		add $s4, $zero, $v0			# s4 = y coord 
+
+		jal getScreenHeight
+		blt $s4, $v0, FoodSet_modify_Food_modify_loop
+
+		add $a0, $zero, $s5
+		jal FoodSet_reset
+
+		j FoodSet_modify_Food_modify_loop
+
+
 
 #------FOOD OBJECT METHODS------#
 
 # a0 = num of rows, a1 = num of columns, a2 = x coordinate of upper left corner, a3 = y coordinate of upper left corner, v0 = mem location, v1 = size of object (bytes)
 Food_construct:
+		addi $sp, $sp, -4
+		sw $ra, 0($sp)
+
 		jal Block_construct
-		jr $ra
+
+		lw $ra, 0($sp)
+		addi $sp, $sp, 4
+	    jr $ra
 
 #------#
 
@@ -561,7 +749,10 @@ fixXCoord:
 		add $s0, $zero, $v0			# s0 = screen width in pixels
 
 		blt $a0, $s0, fixXCoord_check2 # if x coord < s0, proceed to check2
+
+fixXCoord_sub_loop:
 		sub $a0, $a0, $s0
+		blt $s0, $a0, fixXCoord_sub_loop
 
 fixXCoord_check2:
 		addi $t0, $a0, 1

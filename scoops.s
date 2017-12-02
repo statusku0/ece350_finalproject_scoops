@@ -23,6 +23,16 @@ main:
 		#-----$s0 now refers to the block created above-----#
 		add $s0, $zero, $v0 			# save block mem location
 
+		#-----Instantiates a block object----#
+		addi $a0, $zero, 1				# set block num of rows (in pixels)
+		addi $a1, $zero, 2				# set block num of columns (in pixels)
+		addi $a2, $zero, 14		
+		addi $a3, $zero, 7   
+		jal Block_construct			    # construct block
+
+		#-----$s1 now refers to the block created above-----#
+		add $s1, $zero, $v0 			# save block mem location
+
 		addi $a0, $zero, 4
 		jal FoodSet_construct
 
@@ -55,6 +65,16 @@ move_block_across_screen:
 	    lw $a1, 0($t0)					# get keyboard input
 		add $a0, $zero, $s0
 		addi $a2, $zero, 0x0000ff00
+		addi $a3, $zero, 100			# key 1 = "d"
+		addi $v1, $zero, 97				# key 2 = "a"
+		jal Block_modify
+
+	    addi $t0, $zero, 0xffff0004
+	    lw $a1, 0($t0)					# get keyboard input
+		add $a0, $zero, $s1
+		addi $a2, $zero, 0x00551a8b
+		addi $a3, $zero, 108			# key 1 = "l"
+		addi $v1, $zero, 106		    # key 2 = "j"
 		jal Block_modify
 
 		add $a0, $zero, $s3
@@ -67,7 +87,7 @@ move_block_across_screen:
 		jal FoodSet_modify
 
 move_block_across_screen_wait:
-		addi $a0, $zero, 1			
+		addi $a0, $zero, 50000			
 		jal wait  						# wait a number of cycles
 		addi $s5, $s5, 1				# increment global counter
 
@@ -668,7 +688,7 @@ Block_draw:
 
 #--------------#
 
-# a0 = mem location of block, a1 = keyboard input, a2 = color
+# a0 = mem location of block, a1 = keyboard input, a2 = color, a3 = key 1 to look for, a4 = key 2 to look for
 Block_modify:
 		addi $sp, $sp, -36
 		sw $ra, 0($sp)
@@ -695,8 +715,8 @@ Block_modify:
 	    jal Block_getNumCols
 	    add $s6, $zero, $v0					# s6 = num of cols
 
-		addi $t1, $zero, 100
-	    bne $s1, $t1, Block_modify_check2 # if keyboard input not equal to "d", go to next check
+		# addi $t1, $zero, 100
+	    bne $s1, $a3, Block_modify_check2 # if keyboard input not equal to key 1, go to next check
 
 	    add $a0, $zero, $s3
 	    add $a1, $zero, $s4
@@ -709,8 +729,8 @@ Block_modify:
 		jal Block_moveRight
 
 Block_modify_check2:
-		addi $t2, $zero, 97
-		bne $s1, $t2, Block_modify_draw # if keyboard input not equal to "a", don't do anything
+		# addi $t2, $zero, 97
+		bne $s1, $v1, Block_modify_draw # if keyboard input not equal to key 2, don't do anything
 
 		add $a0, $s3, $s6
 		add $a1, $zero, $s4

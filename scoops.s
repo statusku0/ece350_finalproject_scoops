@@ -15,7 +15,7 @@ main:
 
 		#-----Instantiates a block object----#
 		addi $a0, $zero, 1				# set block num of rows (in pixels)
-		addi $a1, $zero, 3				# set block num of columns (in pixels)
+		addi $a1, $zero, 2				# set block num of columns (in pixels)
 		addi $a2, $zero, 0		
 		addi $a3, $zero, 7   
 		jal Block_construct			    # construct block
@@ -39,29 +39,83 @@ main:
 
 move_block_across_screen:
 
+		add $a0, $zero, $s0
+		add $a1, $zero, $s3
+		jal detectCollisionBlockFoodSet # check platform collision with s3 FoodSet
+		add $a0, $zero, $v0
+		jal flashResult
+
+		add $a0, $zero, $s0
+		add $a1, $zero, $s4
+		jal detectCollisionBlockFoodSet # check platform collision with s4 FoodSet
+		add $a0, $zero, $v0
+		jal flashResult
+
 	    addi $t0, $zero, 0xffff0004
 	    lw $a1, 0($t0)					# get keyboard input
 		add $a0, $zero, $s0
-		addi $a2, $zero, 0x000000ff
+		addi $a2, $zero, 0x0000ff00
 		jal Block_modify
 
 		add $a0, $zero, $s3
-		addi $a2, $zero, 0x00ff0000
 		jal FoodSet_modify
 
 		addi $t0, $zero, 5
 		blt $s5, $t0, move_block_across_screen_wait
 
 		add $a0, $zero, $s4
-		addi $a2, $zero, 0x00fa0a00
 		jal FoodSet_modify
 
 move_block_across_screen_wait:
-		addi $a0, $zero, 1000			
+		addi $a0, $zero, 1			
 		jal wait  						# wait a number of cycles
 		addi $s5, $s5, 1				# increment global counter
 
 		j move_block_across_screen
+
+#--------#
+# a0 = 1 or -1
+flashResult:
+		addi $sp, $sp, -36
+		sw $ra, 0($sp)
+		sw $s0, 4($sp)
+		sw $s1, 8($sp)
+		sw $s2, 12($sp)
+		sw $s3, 16($sp)
+		sw $s4, 20($sp)
+		sw $s5, 24($sp)
+		sw $s6, 28($sp)
+		sw $s7, 32($sp)
+
+		addi $t0, $zero, 1
+		addi $t1, $zero, -1
+
+		bne $a0, $t0, flashResult_check2
+		addi $a0, $zero, 15
+		addi $a1, $zero, 4
+		addi $a2, $zero, 0x00228b22
+		jal colorPixel
+
+flashResult_check2:
+		bne $a0, $t1, flashResult_end
+		addi $a0, $zero, 15
+		addi $a1, $zero, 4
+		addi $a2, $zero, 0x008b0000
+		jal colorPixel
+
+flashResult_end:  
+		lw $ra, 0($sp)
+		lw $s0, 4($sp)
+		lw $s1, 8($sp)
+		lw $s2, 12($sp)
+		lw $s3, 16($sp)
+		lw $s4, 20($sp)
+		lw $s5, 24($sp)
+		lw $s6, 28($sp)
+		lw $s7, 32($sp)
+		addi $sp, $sp, 36
+
+		jr $ra
 
 #------FOODSET OBJECT METHODS------#
 
@@ -98,10 +152,9 @@ FoodSet_construct_food_loop:
 		add $a0, $zero, $s2
 		jal fixXCoord
 		
-		addi $a0, $zero, 1				# num of rows = 1
-		addi $a1, $zero, 1				# num of cols = 1
-		add $a2, $zero, $v0 			# random x coord			
-		addi $a3, $zero, -1				# y coord of upper left corner = -1
+		add $a0, $zero, $v0 			# random x coord
+		jal getRandomZeroOrOne
+		add $a1, $zero, $v0				# random type
 		jal Food_construct
 
 		add $s1, $v0, $v1				# increment heap pointer
@@ -164,7 +217,7 @@ FoodSet_reset_loop:
 		jal Block_saveXCoordUpperLeft # re-randomize x coord			
 		
 		addi $s2, $s2, 1			# increment counter
-		addi $s0, $s0, 16			# increment by size of one Food object
+		addi $s0, $s0, 20			# increment by size of one Food object
 		blt $s2, $s1, FoodSet_reset_loop
 
 		lw $ra, 0($sp)
@@ -183,7 +236,7 @@ FoodSet_reset_loop:
 
 #---------#
 
-# a0 = mem location of FoodSet, a1 = keyboard input, a2 = color
+# a0 = mem location of FoodSet, a1 = keyboard input
 FoodSet_modify:
 		addi $sp, $sp, -36
 		sw $ra, 0($sp)
@@ -196,8 +249,6 @@ FoodSet_modify:
 		sw $s6, 28($sp)
 		sw $s7, 32($sp)
 
-		add $s3, $zero, $a2			# s3 = color
-
 		add $s0, $zero, $a0			# s0 = mem location of FoodSet
 		add $s5, $zero, $s0			# s5 = s0
 		lw $s1, 0($s0)				# s1 = number of Food objects
@@ -209,11 +260,10 @@ FoodSet_modify:
 
 FoodSet_modify_Food_modify_loop:
 		add $a0, $zero, $s0
-		add $a2, $zero, $s3
 		jal Food_modify
 		
 		addi $s2, $s2, 1			# increment counter
-		addi $s0, $s0, 16			# increment by size of one Food object
+		addi $s0, $s0, 20			# increment by size of one Food object
 		blt $s2, $s1, FoodSet_modify_Food_modify_loop
 
 		lw $ra, 0($sp)
@@ -247,20 +297,54 @@ FoodSet_modify_reset:
 
 #------FOOD OBJECT METHODS------#
 
-# a0 = num of rows, a1 = num of columns, a2 = x coordinate of upper left corner, a3 = y coordinate of upper left corner, v0 = mem location, v1 = size of object (bytes)
+# a0 = x coordinate of upper left corner, a1 = type (0 for good, 1 for bad), v0 = mem location, v1 = size of object (bytes)
 Food_construct:
-		addi $sp, $sp, -4
+		addi $sp, $sp, -36
 		sw $ra, 0($sp)
+		sw $s0, 4($sp)
+		sw $s1, 8($sp)
+		sw $s2, 12($sp)
+		sw $s3, 16($sp)
+		sw $s4, 20($sp)
+		sw $s5, 24($sp)
+		sw $s6, 28($sp)
+		sw $s7, 32($sp)
 
+		add $s0, $zero, $a1			# s0 = type
+
+		add $a2, $zero, $a0
+		addi $a0, $zero, 1			# num of rows = 1
+		addi $a1, $zero, 1			# num of cols = 1
+		addi $a3, $zero, -1			# y coord of upper left corner = -1
 		jal Block_construct
 
+		add $s1, $zero, $v0			# s1 = mem location
+		add $s2, $zero, $v1			# s2 = size of object
+
+		jal getHeapPointer	
+		sw $s0, 0($v0)				# save type
+		addi $v0, $v0, 4			# increment heap pointer
+		add $a0, $zero, $v0
+		jal saveHeapPointer
+
+		add $v0, $zero, $s1
+		addi $v1, $s2, 4
+
 		lw $ra, 0($sp)
-		addi $sp, $sp, 4
+		lw $s0, 4($sp)
+		lw $s1, 8($sp)
+		lw $s2, 12($sp)
+		lw $s3, 16($sp)
+		lw $s4, 20($sp)
+		lw $s5, 24($sp)
+		lw $s6, 28($sp)
+		lw $s7, 32($sp)
+		addi $sp, $sp, 36
 	    jr $ra
 
 #------#
 
-# a0 = mem location of Food, a1 = keyboard input, a2 = color
+# a0 = mem location of Food, a1 = keyboard input
 Food_modify:
 		addi $sp, $sp, -36
 		sw $ra, 0($sp)
@@ -275,7 +359,6 @@ Food_modify:
 
 		add $s0, $zero, $a0				# save mem location of block to s0 
 		add $s1, $zero, $a1				# save keyboard input to s1
-		add $s2, $zero, $a2				# s2 = color
 
 		add $a0, $zero, $s0
 	    jal Block_getXCoordUpperLeft
@@ -298,7 +381,12 @@ Food_modify:
 		jal Block_moveDown
 
 		add $a0, $zero, $s0
-		add $a1, $zero, $s2
+		jal Food_getType
+		bne $v0, $zero, Food_modify_pickColor_1
+		j Food_modify_pickColor_0
+
+Food_modify_draw:
+		add $a0, $zero, $s0
 		jal Block_draw 					# draw new block
 
 		lw $ra, 0($sp)
@@ -312,6 +400,20 @@ Food_modify:
 		lw $s7, 32($sp)
 		addi $sp, $sp, 36
 
+		jr $ra
+
+Food_modify_pickColor_0:
+		addi $a1, $zero, 0x00ff0000     # red
+		j Food_modify_draw
+
+Food_modify_pickColor_1:
+		addi $a1, $zero, 0x00ffff00     # yellow
+		j Food_modify_draw
+#-------#
+
+# a0 = mem location of Food
+Food_getType:
+		lw $v0, 16($a0)
 		jr $ra
 
 
@@ -812,6 +914,9 @@ initVars:
 		addi $t0, $zero, 0x10040000		
 		sw $t0, 8($t2)					# store pointer to end of heap
 
+		addi $t0, $zero, 0
+		sw $t0, 12($t2)					# place to store random 0 or 1
+
 		lw $ra, 0($sp)
 		lw $s0, 4($sp)
 		lw $s1, 8($sp)
@@ -840,6 +945,45 @@ getScreenWidth:
 		lw $v0, 4($t0)
 
 		jr $ra
+
+#------------#
+
+getHeapPointer:
+		addi $t0, $zero, 0x10000000
+		lw $v0, 8($t0)					# get heap pointer
+
+		jr $ra
+
+
+#------------#
+
+# a0 = heap pointer to save
+saveHeapPointer:
+		addi $t0, $zero, 0x10000000
+		sw $a0, 8($t0)					# save heap pointer
+
+		jr $ra
+		
+#------------#
+
+# right now, this just alternates between 0 and 1
+getRandomZeroOrOne:
+		addi $t0, $zero, 0x10000000
+		lw $t1, 12($t0)
+
+		bne $t1, $zero, getRandomZeroOrOne_makeZero
+		addi $t1, $t1, 1
+
+getRandomZeroOrOne_return:
+		sw $t1, 12($t0)
+		add $v0, $zero, $t1
+		jr $ra
+
+getRandomZeroOrOne_makeZero:
+		addi $t1, $zero, 0
+		j getRandomZeroOrOne_return
+		
+
 
 
 #------------#
@@ -961,5 +1105,164 @@ colorRect_adjust:
 		add $t1, $zero, $s4				# adjust t1 = s4
 
 		j colorRect_loopRow
+
+
+#---------#
+
+# a0 = block 1, a1 = block 2, v0 = 0 if no collision, 1 if collision
+isCollision:
+		addi $sp, $sp, -36
+		sw $ra, 0($sp)
+		sw $s0, 4($sp)
+		sw $s1, 8($sp)
+		sw $s2, 12($sp)
+		sw $s3, 16($sp)
+		sw $s4, 20($sp)
+		sw $s5, 24($sp)
+		sw $s6, 28($sp)
+		sw $s7, 32($sp)
+
+		add $s0, $zero, $a0			# s0 = block 1
+		add $s1, $zero, $a1         # s1 = block 2
+
+		add $a0, $zero, $s0	
+		jal Block_getYCoordUpperLeft
+		add $s2, $zero, $v0			# s2 = y coord of top of block 1
+
+		add $a0, $zero, $s0
+		jal Block_getNumRows
+		add $s4, $zero, $v0
+		add $s4, $s4, $s2
+		addi $s4, $s4, -1			# s4 = y coord of bottom of block 1
+
+		add $a0, $zero, $s1
+		jal Block_getYCoordUpperLeft
+		add $s3, $zero, $v0			# s3 = y coord of top of block 2
+
+		add $a0, $zero, $s1
+		jal Block_getNumRows
+		add $s5, $zero, $v0
+		add $s5, $s5, $s3
+		addi $s5, $s5, -1			# s5 = y coord of bottom of block 2
+
+		addi $v0, $zero, 0
+
+		bne $s3, $s4, isCollision_check2
+		j isCollision_Xcheck
+
+isCollision_check2:
+		bne $s5, $s2, isCollision_end
+		j isCollision_Xcheck
+
+isCollision_Xcheck:
+		add $a0, $zero, $s0
+		jal Block_getXCoordUpperLeft
+		add $s2, $zero, $v0			# s2 = block 1: x coord of upper left corner
+
+		add $a0, $zero, $s0
+		jal Block_getNumCols
+		add $s3, $s2, $v0
+		addi $s3, $s3, -1			
+		add $a0, $zero, $s3
+		jal fixXCoord
+		add $s3, $zero, $v0         # s3 = block 1: x coord of right side
+
+		add $a0, $zero, $s1
+		jal Block_getXCoordUpperLeft
+		add $s4, $zero, $v0			# s4 = block 2: x coord of upper left corner
+
+		add $a0, $zero, $s1
+		jal Block_getNumCols
+		add $s5, $s4, $v0
+		addi $s5, $s5, -1
+		add $a0, $zero, $s5			
+		jal fixXCoord
+		add $s5, $zero, $v0			# s5 = block 2: x coord of right side
+
+		addi $v0, $zero, 0
+
+		blt $s3, $s4, isCollision_Xcheck2
+		blt $s5, $s2, isCollision_end
+		addi $v0, $zero, 1
+
+isCollision_Xcheck2:
+        blt $s2, $s5, isCollision_end
+        addi $v0, $zero, 1
+
+isCollision_end:
+		lw $ra, 0($sp)					
+		lw $s0, 4($sp)
+		lw $s1, 8($sp)
+		lw $s2, 12($sp)
+		lw $s3, 16($sp)
+		lw $s4, 20($sp)
+		lw $s5, 24($sp)
+		lw $s6, 28($sp)
+		lw $s7, 32($sp)
+		addi $sp, $sp, 36
+
+		jr $ra
+
+#---------#
+# a0 = block (platform), a1 = FoodSet, v0 = 1 if platform hit a good type Food, -1 if platform hit a bad type Food, 0 if no collision
+detectCollisionBlockFoodSet:
+		addi $sp, $sp, -36
+		sw $ra, 0($sp)
+		sw $s0, 4($sp)
+		sw $s1, 8($sp)
+		sw $s2, 12($sp)
+		sw $s3, 16($sp)
+		sw $s4, 20($sp)
+		sw $s5, 24($sp)
+		sw $s6, 28($sp)
+		sw $s7, 32($sp)
+
+		add $s3, $zero, $a0			# s3 = block (platform)
+		add $s0, $zero, $a1			# s0 = mem location of FoodSet
+		add $s5, $zero, $s0			# s5 = s0
+		lw $s1, 0($s0)				# s1 = number of Food objects
+		addi $s0, $s0, 4			# s0 = mem location of Food objects
+
+		addi $s2, $zero, 0			# s2 = counter
+
+		addi $s6, $zero, 0
+
+detectCollisionBlockFoodSet_loop:
+		add $a0, $zero, $s0
+		add $a1, $zero, $s3
+		jal isCollision
+		add $s6, $zero, $v0
+		bne $s6, $zero, detectCollisionBlockFoodSet_setOut # collision detected, set output
+		
+		addi $s2, $s2, 1			# increment counter
+		addi $s0, $s0, 20			# increment by size of one Food object
+		blt $s2, $s1, detectCollisionBlockFoodSet_loop
+
+detectCollisionBlockFoodSet_end:
+		add $v0, $zero, $s6
+		lw $ra, 0($sp)
+		lw $s0, 4($sp)
+		lw $s1, 8($sp)
+		lw $s2, 12($sp)
+		lw $s3, 16($sp)
+		lw $s4, 20($sp)
+		lw $s5, 24($sp)
+		lw $s6, 28($sp)
+		lw $s7, 32($sp)
+		addi $sp, $sp, 36
+
+		jr $ra
+
+detectCollisionBlockFoodSet_setOut:
+		add $a0, $zero, $s0
+		jal Food_getType
+		bne $v0, $zero, detectCollisionBlockFoodSet_setOut_bad
+		addi $s6, $zero, 1
+		j detectCollisionBlockFoodSet_end
+
+detectCollisionBlockFoodSet_setOut_bad:
+		addi $s6, $zero, -1
+		j detectCollisionBlockFoodSet_end
+
 		
 

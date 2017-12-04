@@ -9,6 +9,8 @@
 # 0x10000000 = screen row length
 # 0x10000004 = screen column length
 # 0x10000008 = pointer to end of heap
+# 0x1000000c = player 1 input
+# 0x10000010 = player 2 input
 
 main:
 		jal initVars					# initialize constants/global pointers
@@ -48,30 +50,54 @@ main:
 		addi $s5, $zero, 0				# s5 = global cycle counter
 
 move_block_across_screen:
-
+		
+		#-----Check collision with s0 platform-----#
 		add $a0, $zero, $s0
 		add $a1, $zero, $s3
 		jal detectCollisionBlockFoodSet # check platform collision with s3 FoodSet
 		add $a0, $zero, $v0
+		addi $a1, $zero, 15
+		addi $a2, $zero, 4
 		jal flashResult
 
 		add $a0, $zero, $s0
 		add $a1, $zero, $s4
 		jal detectCollisionBlockFoodSet # check platform collision with s4 FoodSet
 		add $a0, $zero, $v0
+		addi $a1, $zero, 15
+		addi $a2, $zero, 4
+		jal flashResult
+
+		#-----Check collision with s1 platform-----#
+		add $a0, $zero, $s1
+		add $a1, $zero, $s3
+		jal detectCollisionBlockFoodSet # check platform collision with s3 FoodSet
+		add $a0, $zero, $v0
+		addi $a1, $zero, 0
+		addi $a2, $zero, 4
+		jal flashResult
+
+		add $a0, $zero, $s1
+		add $a1, $zero, $s4
+		jal detectCollisionBlockFoodSet # check platform collision with s4 FoodSet
+		add $a0, $zero, $v0
+		addi $a1, $zero, 0
+		addi $a2, $zero, 4
 		jal flashResult
 
 	    addi $t0, $zero, 0xffff0004
-	    lw $a1, 0($t0)					# get keyboard input
+	    lw $a0, 0($t0)					# get keyboard input
+	    jal storeKeyboardInput
+
 		add $a0, $zero, $s0
+		addi $a1, $zero, 0x1000000c
 		addi $a2, $zero, 0x0000ff00
 		addi $a3, $zero, 100			# key 1 = "d"
 		addi $v1, $zero, 97				# key 2 = "a"
 		jal Block_modify
 
-	    addi $t0, $zero, 0xffff0004
-	    lw $a1, 0($t0)					# get keyboard input
 		add $a0, $zero, $s1
+		addi $a1, $zero, 0x10000010
 		addi $a2, $zero, 0x00551a8b
 		addi $a3, $zero, 108			# key 1 = "l"
 		addi $v1, $zero, 106		    # key 2 = "j"
@@ -94,7 +120,7 @@ move_block_across_screen_wait:
 		j move_block_across_screen
 
 #--------#
-# a0 = 1 or -1
+# a0 = 1 or -1, a1 = x coord of signal, a2 = y coord of signal
 flashResult:
 		addi $sp, $sp, -36
 		sw $ra, 0($sp)
@@ -110,16 +136,19 @@ flashResult:
 		addi $t0, $zero, 1
 		addi $t1, $zero, -1
 
+		add $s0, $zero, $a1
+		add $s1, $zero, $a2
+
 		bne $a0, $t0, flashResult_check2
-		addi $a0, $zero, 15
-		addi $a1, $zero, 4
+		add $a0, $zero, $s0
+		add $a1, $zero, $s1
 		addi $a2, $zero, 0x00228b22
 		jal colorPixel
 
 flashResult_check2:
 		bne $a0, $t1, flashResult_end
-		addi $a0, $zero, 15
-		addi $a1, $zero, 4
+		add $a0, $zero, $s0
+		add $a1, $zero, $s1
 		addi $a2, $zero, 0x008b0000
 		jal colorPixel
 
@@ -688,7 +717,7 @@ Block_draw:
 
 #--------------#
 
-# a0 = mem location of block, a1 = keyboard input, a2 = color, a3 = key 1 to look for, a4 = key 2 to look for
+# a0 = mem location of block, a1 = mem location of keyboard input, a2 = color, a3 = key 1 to look for, a4 = key 2 to look for
 Block_modify:
 		addi $sp, $sp, -36
 		sw $ra, 0($sp)
@@ -702,7 +731,7 @@ Block_modify:
 		sw $s7, 32($sp)
 
 		add $s0, $zero, $a0				# save mem location of block to s0 
-		add $s1, $zero, $a1				# save keyboard input to s1
+		lw $s1, 0($a1)					# save keyboard input to s1
 		add $s2, $zero, $a2				# s2 = color
 
 		add $a0, $zero, $s0
@@ -715,7 +744,6 @@ Block_modify:
 	    jal Block_getNumCols
 	    add $s6, $zero, $v0					# s6 = num of cols
 
-		# addi $t1, $zero, 100
 	    bne $s1, $a3, Block_modify_check2 # if keyboard input not equal to key 1, go to next check
 
 	    add $a0, $zero, $s3
@@ -729,7 +757,6 @@ Block_modify:
 		jal Block_moveRight
 
 Block_modify_check2:
-		# addi $t2, $zero, 97
 		bne $s1, $v1, Block_modify_draw # if keyboard input not equal to key 2, don't do anything
 
 		add $a0, $s3, $s6
@@ -1284,5 +1311,54 @@ detectCollisionBlockFoodSet_setOut_bad:
 		addi $s6, $zero, -1
 		j detectCollisionBlockFoodSet_end
 
+#---------#
+# a0 = keyboard input
+storeKeyboardInput:
+		addi $sp, $sp, -36
+		sw $ra, 0($sp)
+		sw $s0, 4($sp)
+		sw $s1, 8($sp)
+		sw $s2, 12($sp)
+		sw $s3, 16($sp)
+		sw $s4, 20($sp)
+		sw $s5, 24($sp)
+		sw $s6, 28($sp)
+		sw $s7, 32($sp)
+
+		add $s0, $zero, $a0			# s0 = keyboard input
+		addi $s1, $zero, 100		# s1 = "d"
+		addi $s2, $zero, 97			# s2 = "a"
+		addi $s3, $zero, 108
+		addi $s4, $zero, 106
+		addi $s5, $zero, 0x10000000 
+
+		bne $s0, $s1, storeKeyboardInput_player1_check2
+		sw $s0, 12($s5)				# store player 1 input
+
+storeKeyboardInput_player1_check2:
+		bne $s0, $s2, storeKeyboardInput_player2_check1
+		sw $s0, 12($s5)				# store player 1 input
+
+storeKeyboardInput_player2_check1:
+		bne $s0, $s3, storeKeyboardInput_player2_check2
+		sw $s0, 16($s5)				# store player 2 input
+
+storeKeyboardInput_player2_check2:
+		bne $s0, $s4, storeKeyboardInput_end
+		sw $s0, 16($s5)				# store player 2 input
+
+storeKeyboardInput_end:
+		lw $ra, 0($sp)
+		lw $s0, 4($sp)
+		lw $s1, 8($sp)
+		lw $s2, 12($sp)
+		lw $s3, 16($sp)
+		lw $s4, 20($sp)
+		lw $s5, 24($sp)
+		lw $s6, 28($sp)
+		lw $s7, 32($sp)
+		addi $sp, $sp, 36
+
+		jr $ra
 		
 

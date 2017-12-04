@@ -120,7 +120,7 @@ move_block_across_screen_wait:
 		j move_block_across_screen
 
 #--------#
-# a0 = 1 or -1, a1 = x coord of signal, a2 = y coord of signal
+# a0 = food type, a1 = x coord of signal, a2 = y coord of signal
 flashResult:
 		addi $sp, $sp, -36
 		sw $ra, 0($sp)
@@ -133,8 +133,9 @@ flashResult:
 		sw $s6, 28($sp)
 		sw $s7, 32($sp)
 
-		addi $t0, $zero, 1
-		addi $t1, $zero, -1
+		addi $t0, $zero, 0
+		addi $t1, $zero, 1
+		addi $t2, $zero, 2
 
 		add $s0, $zero, $a1
 		add $s1, $zero, $a2
@@ -142,14 +143,21 @@ flashResult:
 		bne $a0, $t0, flashResult_check2
 		add $a0, $zero, $s0
 		add $a1, $zero, $s1
-		addi $a2, $zero, 0x00228b22
+		addi $a2, $zero, 0x00228b22		# dark green
 		jal colorPixel
 
 flashResult_check2:
-		bne $a0, $t1, flashResult_end
+		bne $a0, $t1, flashResult_check3
 		add $a0, $zero, $s0
 		add $a1, $zero, $s1
-		addi $a2, $zero, 0x008b0000
+		addi $a2, $zero, 0x008b0000		# red
+		jal colorPixel
+
+flashResult_check3:
+		bne $a0, $t2, flashResult_end
+		add $a0, $zero, $s0
+		add $a1, $zero, $s1
+		addi $a2, $zero, 0x00ff69b4		# pink
 		jal colorPixel
 
 flashResult_end:  
@@ -202,7 +210,7 @@ FoodSet_construct_food_loop:
 		jal fixXCoord
 		
 		add $a0, $zero, $v0 			# random x coord
-		jal getRandomZeroOrOne
+		jal getRandomZeroOrOneOrTwo
 		add $a1, $zero, $v0				# random type
 		jal Food_construct
 
@@ -456,7 +464,13 @@ Food_modify_pickColor_0:
 		j Food_modify_draw
 
 Food_modify_pickColor_1:
+		addi $t0, $zero, 1
+		bne $v0, $t0, Food_modify_pickColor_2
 		addi $a1, $zero, 0x00ffff00     # yellow
+		j Food_modify_draw
+
+Food_modify_pickColor_2:
+		addi $a1, $zero, 0x00ffa500		# orange
 		j Food_modify_draw
 #-------#
 
@@ -1013,22 +1027,23 @@ saveHeapPointer:
 		
 #------------#
 
-# right now, this just alternates between 0 and 1
-getRandomZeroOrOne:
+# right now, this just alternates between 0 and 1 and 2
+getRandomZeroOrOneOrTwo:
 		addi $t0, $zero, 0x10000000
 		lw $t1, 12($t0)
 
-		bne $t1, $zero, getRandomZeroOrOne_makeZero
+		addi $t2, $zero, 1
+		blt $t2, $t1, getRandomZeroOrOneOrTwo_makeZero	# if t1 > 1 (i.e. t1 >= 2) reset
 		addi $t1, $t1, 1
 
-getRandomZeroOrOne_return:
+getRandomZeroOrOneOrTwo_return:
 		sw $t1, 12($t0)
 		add $v0, $zero, $t1
 		jr $ra
 
-getRandomZeroOrOne_makeZero:
+getRandomZeroOrOneOrTwo_makeZero:
 		addi $t1, $zero, 0
-		j getRandomZeroOrOne_return
+		j getRandomZeroOrOneOrTwo_return
 		
 
 
@@ -1251,7 +1266,7 @@ isCollision_end:
 		jr $ra
 
 #---------#
-# a0 = block (platform), a1 = FoodSet, v0 = 1 if platform hit a good type Food, -1 if platform hit a bad type Food, 0 if no collision
+# a0 = block (platform), a1 = FoodSet, v0 = if collision, type of Food hit; if no collision, -1
 detectCollisionBlockFoodSet:
 		addi $sp, $sp, -36
 		sw $ra, 0($sp)
@@ -1272,14 +1287,13 @@ detectCollisionBlockFoodSet:
 
 		addi $s2, $zero, 0			# s2 = counter
 
-		addi $s6, $zero, 0
+		addi $s6, $zero, -1			# set default value
 
 detectCollisionBlockFoodSet_loop:
 		add $a0, $zero, $s0
 		add $a1, $zero, $s3
 		jal isCollision
-		add $s6, $zero, $v0
-		bne $s6, $zero, detectCollisionBlockFoodSet_setOut # collision detected, set output
+		bne $v0, $zero, detectCollisionBlockFoodSet_setOut # collision detected, set output
 		
 		addi $s2, $s2, 1			# increment counter
 		addi $s0, $s0, 20			# increment by size of one Food object
@@ -1303,12 +1317,7 @@ detectCollisionBlockFoodSet_end:
 detectCollisionBlockFoodSet_setOut:
 		add $a0, $zero, $s0
 		jal Food_getType
-		bne $v0, $zero, detectCollisionBlockFoodSet_setOut_bad
-		addi $s6, $zero, 1
-		j detectCollisionBlockFoodSet_end
-
-detectCollisionBlockFoodSet_setOut_bad:
-		addi $s6, $zero, -1
+		add $s6, $zero, $v0
 		j detectCollisionBlockFoodSet_end
 
 #---------#

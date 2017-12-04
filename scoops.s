@@ -3,7 +3,7 @@
 .text
 		.globl main
 
-# Bitmap display: 512 by 256 pixels, unit pixel width/height = 32, base address for display = 0x10010000
+# Bitmap display: 512 by 256 pixels, unit pixel width/height = 32, base address for display = 0x10008000
 
 # Global Mem:
 # 0x10000000 = screen row length
@@ -11,15 +11,16 @@
 # 0x10000008 = pointer to end of heap
 # 0x1000000c = player 1 input
 # 0x10000010 = player 2 input
+# 0x10000014 = 1 if want screen flip, 0 otherwise
 
 main:
 		jal initVars					# initialize constants/global pointers
 
 		#-----Instantiates a block object----#
 		addi $a0, $zero, 1				# set block num of rows (in pixels)
-		addi $a1, $zero, 2				# set block num of columns (in pixels)
+		addi $a1, $zero, 3				# set block num of columns (in pixels)
 		addi $a2, $zero, 0		
-		addi $a3, $zero, 7   
+		addi $a3, $zero, 15   
 		jal Block_construct			    # construct block
 
 		#-----$s0 now refers to the block created above-----#
@@ -27,9 +28,9 @@ main:
 
 		#-----Instantiates a block object----#
 		addi $a0, $zero, 1				# set block num of rows (in pixels)
-		addi $a1, $zero, 2				# set block num of columns (in pixels)
-		addi $a2, $zero, 14		
-		addi $a3, $zero, 7   
+		addi $a1, $zero, 3				# set block num of columns (in pixels)
+		addi $a2, $zero, 29		
+		addi $a3, $zero, 15   
 		jal Block_construct			    # construct block
 
 		#-----$s1 now refers to the block created above-----#
@@ -56,34 +57,26 @@ move_block_across_screen:
 		add $a1, $zero, $s3
 		jal detectCollisionBlockFoodSet # check platform collision with s3 FoodSet
 		add $a0, $zero, $v0
-		addi $a1, $zero, 15
-		addi $a2, $zero, 4
-		jal flashResult
+		jal interpretCollision
 
 		add $a0, $zero, $s0
 		add $a1, $zero, $s4
 		jal detectCollisionBlockFoodSet # check platform collision with s4 FoodSet
 		add $a0, $zero, $v0
-		addi $a1, $zero, 15
-		addi $a2, $zero, 4
-		jal flashResult
+		jal interpretCollision
 
 		#-----Check collision with s1 platform-----#
 		add $a0, $zero, $s1
 		add $a1, $zero, $s3
 		jal detectCollisionBlockFoodSet # check platform collision with s3 FoodSet
 		add $a0, $zero, $v0
-		addi $a1, $zero, 0
-		addi $a2, $zero, 4
-		jal flashResult
+		jal interpretCollision
 
 		add $a0, $zero, $s1
 		add $a1, $zero, $s4
 		jal detectCollisionBlockFoodSet # check platform collision with s4 FoodSet
 		add $a0, $zero, $v0
-		addi $a1, $zero, 0
-		addi $a2, $zero, 4
-		jal flashResult
+		jal interpretCollision
 
 	    addi $t0, $zero, 0xffff0004
 	    lw $a0, 0($t0)					# get keyboard input
@@ -113,15 +106,15 @@ move_block_across_screen:
 		jal FoodSet_modify
 
 move_block_across_screen_wait:
-		addi $a0, $zero, 50000			
+		addi $a0, $zero, 100			
 		jal wait  						# wait a number of cycles
 		addi $s5, $s5, 1				# increment global counter
 
 		j move_block_across_screen
 
 #--------#
-# a0 = food type, a1 = x coord of signal, a2 = y coord of signal
-flashResult:
+# a0 = food type
+interpretCollision:
 		addi $sp, $sp, -36
 		sw $ra, 0($sp)
 		sw $s0, 4($sp)
@@ -133,34 +126,38 @@ flashResult:
 		sw $s6, 28($sp)
 		sw $s7, 32($sp)
 
-		addi $t0, $zero, 0
-		addi $t1, $zero, 1
-		addi $t2, $zero, 2
+		addi $s0, $zero, 0
+		addi $s1, $zero, 1
+		addi $s2, $zero, 2
 
-		add $s0, $zero, $a1
-		add $s1, $zero, $a2
-
-		bne $a0, $t0, flashResult_check2
-		add $a0, $zero, $s0
-		add $a1, $zero, $s1
+		bne $a0, $s0, interpretCollision_check2
+		addi $a0, $zero, 31
+		addi $a1, $zero, 7
 		addi $a2, $zero, 0x00228b22		# dark green
 		jal colorPixel
 
-flashResult_check2:
-		bne $a0, $t1, flashResult_check3
-		add $a0, $zero, $s0
-		add $a1, $zero, $s1
+interpretCollision_check2:
+		bne $a0, $s1, interpretCollision_check3
+		addi $a0, $zero, 0
+		addi $a1, $zero, 7
 		addi $a2, $zero, 0x008b0000		# red
 		jal colorPixel
 
-flashResult_check3:
-		bne $a0, $t2, flashResult_end
-		add $a0, $zero, $s0
-		add $a1, $zero, $s1
-		addi $a2, $zero, 0x00ff69b4		# pink
-		jal colorPixel
+interpretCollision_check3:
+		bne $a0, $s2, interpretCollision_end
+		jal eraseScreen					# erase screen
+		addi $t0, $zero, 1
+		addi $t1, $zero, 0x10000000
+		lw $t2, 20($t1)					
+		bne $t2, $zero, interpretCollision_check3_makeZero # if flip screen = 1, then make flip screen = 0
+		sw $t0, 20($t1)									   # else, make flip screen = 1
+		j interpretCollision_end
 
-flashResult_end:  
+interpretCollision_check3_makeZero:
+		sw $zero, 20($t1)				
+		j interpretCollision_end
+
+interpretCollision_end:  
 		lw $ra, 0($sp)
 		lw $s0, 4($sp)
 		lw $s1, 8($sp)
@@ -828,7 +825,7 @@ getAddressFromCoordinate:
         add $s2, $zero, 0			# s2 = x counter
         add $s3, $zero, 0			# s3 = y counter
 
-        add $v0, $zero, 0x10010000	# v0 = output address
+        add $v0, $zero, 0x10008000	# v0 = output address
 
         blt $s2, $s0, getAddressFromCoordinate_xLoop
 		j getAddressFromCoordinate_xLoop_end
@@ -966,8 +963,8 @@ initVars:
 		sw $s6, 28($sp)
 		sw $s7, 32($sp)
 
-		addi $t0, $zero, 8
-		addi $t1, $zero, 16
+		addi $t0, $zero, 16
+		addi $t1, $zero, 32
 		addi $t2, $zero, 0x10000000
 		sw $t0, 0($t2)					# store screen height (in pixels)
 		sw $t1, 4($t2)					# store screen width (in pixels)
@@ -1110,6 +1107,19 @@ colorRect:
 		add $s2, $zero, $a2				# s2 = num of rows
 		add $s3, $zero, $a3				# s3 = num of columns
 
+		jal checkIfOutOfBounds
+		bne $v0, $zero, colorRect_end	# if rectangle out of bounds, don't color it
+
+		addi $t0, $zero, 0x10000000
+		lw $t1, 20($t0)
+		addi $t2, $zero, 1
+		bne $t1, $t2, colorRect_init	# if flip screen = 0, continue as normal
+
+		jal getScreenHeight
+		sub $s1, $v0, $s1  			    # else, flip y coord
+		sub $s1, $s1, $s2 				# make it y coord of upper left corner
+
+colorRect_init:
 		add $a0, $zero, $s0
 		add $a1, $zero, $s1
 		jal getAddressFromCoordinate
@@ -1145,6 +1155,7 @@ colorRect_loopRow:
 
 		blt $s6, $s3, colorRect_loopCol # if column counter < num of cols, keep looping in loopCol
 
+colorRect_end:
 		lw $ra, 0($sp)					# else, done with colorRect
 		lw $s0, 4($sp)
 		lw $s1, 8($sp)
@@ -1369,5 +1380,84 @@ storeKeyboardInput_end:
 		addi $sp, $sp, 36
 
 		jr $ra
-		
 
+#---------#
+eraseScreen:
+		addi $sp, $sp, -36
+		sw $ra, 0($sp)
+		sw $s0, 4($sp)
+		sw $s1, 8($sp)
+		sw $s2, 12($sp)
+		sw $s3, 16($sp)
+		sw $s4, 20($sp)
+		sw $s5, 24($sp)
+		sw $s6, 28($sp)
+		sw $s7, 32($sp)
+
+		jal getScreenHeight
+		add $s0, $zero, $v0			# s0 = screen height
+		jal getScreenWidth
+		add $s1, $zero, $v0			# s1 = screen width
+
+		addi $a0, $zero, 0
+		addi $a1, $zero, 0
+		add $a2, $zero, $s0
+		add $a3, $zero, $s1
+		addi $v1, $zero, 0x00000000
+		jal colorRect
+		
+		lw $ra, 0($sp)
+		lw $s0, 4($sp)
+		lw $s1, 8($sp)
+		lw $s2, 12($sp)
+		lw $s3, 16($sp)
+		lw $s4, 20($sp)
+		lw $s5, 24($sp)
+		lw $s6, 28($sp)
+		lw $s7, 32($sp)
+		addi $sp, $sp, 36
+
+		jr $ra
+
+#---------#
+
+# (currently assumes upper left corner is within bounds and only checks that block fits in screen vertically)
+# a0 = x coord of upper left corner, a1 = y coord of upper left corner, a2 = num of rows, a3 = num of columns, v0 = 0 if not out of bounds, 1 if so
+checkIfOutOfBounds:
+		addi $sp, $sp, -36
+		sw $ra, 0($sp)
+		sw $s0, 4($sp)
+		sw $s1, 8($sp)
+		sw $s2, 12($sp)
+		sw $s3, 16($sp)
+		sw $s4, 20($sp)
+		sw $s5, 24($sp)
+		sw $s6, 28($sp)
+		sw $s7, 32($sp)
+
+		add $s1, $zero, $a1			# s1 = y coord of upper left corner
+		add $s2, $zero, $a2			# s2 = num of rows
+
+		jal getScreenHeight
+		add $s0, $zero, $v0			# s0 = screen height
+
+		addi $v0, $zero, 0
+
+		add $t0, $s1, $s2
+		addi $t0, $t0, -1
+		blt $t0, $s0, checkIfOutOfBounds_end
+		addi $v0, $zero, 1
+
+checkIfOutOfBounds_end:
+		lw $ra, 0($sp)
+		lw $s0, 4($sp)
+		lw $s1, 8($sp)
+		lw $s2, 12($sp)
+		lw $s3, 16($sp)
+		lw $s4, 20($sp)
+		lw $s5, 24($sp)
+		lw $s6, 28($sp)
+		lw $s7, 32($sp)
+		addi $sp, $sp, 36
+
+		jr $ra

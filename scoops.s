@@ -53,7 +53,7 @@ main:
 		jal healthBar_construct
 		add $s2, $zero, $v0				# s2 = health bar for player 1
 
-		addi $a0, $zero, 31
+		addi $a0, $zero, 1
 		addi $a1, $zero, 0x004b0082		# indigo
 		jal healthBar_construct
 		add $s6, $zero, $v0				# s6 = health bar for player 2
@@ -196,7 +196,7 @@ interpretCollision_end:
 		jr $ra
 
 #------healthBar OBJECT METHODS-----#
-# a0 = starting column, a1 = color
+# a0 = starting row, a1 = color
 healthBar_construct:
 		addi $sp, $sp, -36
 		sw $ra, 0($sp)
@@ -215,8 +215,8 @@ healthBar_construct:
 		sw $a0, 0($s0)
 		sw $a1, 8($s0)
 
-		jal getScreenHeight
-		sw $v0, 4($s0)				# initialize height to screen height
+		jal getScreenWidth
+		sw $v0, 4($s0)				# initialize height to screen width
 
 		addi $t0, $s0, 12
 		add $a0, $zero, $t0
@@ -240,7 +240,7 @@ healthBar_construct:
 
 #-------#
 # a0 = healthBar, v0 = starting column
-healthBar_getStartingColumn:
+healthBar_getStartingRow:
 		lw $v0, 0($a0)
 		jr $ra
 
@@ -270,10 +270,10 @@ healthBar_addToHeight:
 		sw $s6, 28($sp)
 		sw $s7, 32($sp)
 
-		jal getScreenHeight
+		jal getScreenWidth
 		lw $t0, 4($a0)
 		add $t0, $t0, $a1
-		blt $v0, $t0, healthBar_addToHeight_end  # if new height > screen height, don't change height
+		blt $v0, $t0, healthBar_addToHeight_end  # if new height > screen width, don't change height
 		sw $t0, 4($a0)
 
 healthBar_addToHeight_end:
@@ -342,27 +342,27 @@ healthBar_draw:
 		add $s0, $zero, $a0				# s0 = healthBar
 
 		add $a0, $zero, $s0
-		jal healthBar_getStartingColumn
-		add $s1, $zero, $v0				# s1 = starting column
+		jal healthBar_getStartingRow
+		add $s1, $zero, $v0				# s1 = starting row
 		jal healthBar_getHeight
 		add $s2, $zero, $v0 			# s2 = height
 		jal healthBar_getColor
 		add $s4, $zero, $v0				# s4 = color
 
-		jal getScreenHeight
-		sub $s3, $v0, $s2 				# s3 = screen height - health bar height
+		jal getScreenWidth
+		sub $s3, $v0, $s2 				# s3 = screen width - health bar height
 
-		add $a0, $zero, $s1
-		add $a1, $zero, $s3
-		add $a2, $zero, $s2
-		addi $a3, $zero, 1
+		add $a0, $zero, 0
+		add $a1, $zero, $s1
+		add $a2, $zero, 1
+		add $a3, $zero, $s2
 		add $v1, $zero, $s4
 		jal colorRect
 
-		add $a0, $zero, $s1
-		addi $a1, $zero, 0
-		add $a2, $zero, $s3
-		addi $a3, $zero, 1
+		add $a0, $zero, $s2
+		add $a1, $zero, $s1
+		add $a2, $zero, 1
+		add $a3, $zero, $s3
 		addi $v1, $zero, 0x00000000
 		jal colorRect 				 	# erase part above health bar
 
@@ -467,8 +467,8 @@ FoodSet_reset:
 
 FoodSet_reset_loop:
 		add $a0, $zero, $s0
-		addi $a1, $zero, -1
-		jal Block_saveYCoordUpperLeft # change y coord of upper left corner to -1
+		addi $a1, $zero, 2
+		jal Block_saveYCoordUpperLeft # change y coord of upper left corner to 2
 
 		addi $s3, $s3, 11
 		add $a0, $zero, $s3
@@ -576,7 +576,7 @@ Food_construct:
 		add $a2, $zero, $a0
 		addi $a0, $zero, 1			# num of rows = 1
 		addi $a1, $zero, 1			# num of cols = 1
-		addi $a3, $zero, -1			# y coord of upper left corner = -1
+		addi $a3, $zero, 2			# y coord of upper left corner = 2
 		jal Block_construct
 
 		add $s1, $zero, $v0			# s1 = mem location

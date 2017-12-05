@@ -3,21 +3,24 @@
 .text
 		.globl main
 
-# Bitmap display: 512 by 256 pixels, unit pixel width/height = 32, base address for display = 0x10010000
+# Bitmap display: 512 by 256 pixels, unit pixel width/height = 32, base address for display = 0x10008000
 
 # Global Mem:
 # 0x10000000 = screen row length
 # 0x10000004 = screen column length
 # 0x10000008 = pointer to end of heap
+# 0x1000000c = player 1 input
+# 0x10000010 = player 2 input
+# 0x10000014 = 1 if want screen flip, 0 otherwise
 
 main:
 		jal initVars					# initialize constants/global pointers
-		
+
 		#-----Instantiates a block object----#
 		addi $a0, $zero, 1				# set block num of rows (in pixels)
-		addi $a1, $zero, 2				# set block num of columns (in pixels)
+		addi $a1, $zero, 3				# set block num of columns (in pixels)
 		addi $a2, $zero, 0		
-		addi $a3, $zero, 7   
+		addi $a3, $zero, 15   
 		jal Block_construct			    # construct block
 
 		#-----$s0 now refers to the block created above-----#
@@ -25,9 +28,9 @@ main:
 
 		#-----Instantiates a block object----#
 		addi $a0, $zero, 1				# set block num of rows (in pixels)
-		addi $a1, $zero, 2				# set block num of columns (in pixels)
-		addi $a2, $zero, 14		
-		addi $a3, $zero, 7   
+		addi $a1, $zero, 3				# set block num of columns (in pixels)
+		addi $a2, $zero, 29		
+		addi $a3, $zero, 15   
 		jal Block_construct			    # construct block
 
 		#-----$s1 now refers to the block created above-----#
@@ -42,70 +45,63 @@ main:
 		jal FoodSet_construct
 
 		add $s4, $zero, $v0
+		
 		# Initialize health bar (stored in $s2)
 		# a0 = x coord of upper left corner, a1 = y coord of upper left corner (8), a2 = num of rows (0), a3 = num of columns, v1 = color (v1 is treated as an input)
-		addi $t0, $zero, 0x10000000
-		lw $t1, 8($t0)					# get heap pointer
-		add $s2, $zero, $t1				# s2 = initial heap pointer
-		addi $t2,$0,8
-		sw $t2, 0($t1)
-		addi $t2,$0,0					# store y coordinate
-		sw $t2,4($t1)					# store number of rows	
-		addi $t1, $t1, 8				# increment heap pointer
-		sw $t1, 8($t0)					# save heap pointer		
-
-		#addi $a0, $0,15
-		#addi $a1, $0,7
-		#addi $a2,$0,1
-		#addi $a3, $0, 1
-		#addi $v1, $0, 0x00228b22
-		#jal colorRect
+		#addi $t0, $zero, 0x10000000
+		#lw $t1, 8($t0)					# get heap pointer
+		#add $s2, $zero, $t1				# s2 = initial heap pointer
+		#addi $t2,$0,8
+		#sw $t2, 0($t1)
+		#addi $t2,$0,0					# store y coordinate
+		#sw $t2,4($t1)					# store number of rows	
+		#addi $t1, $t1, 8				# increment heap pointer
+		#sw $t1, 8($t0)					# save heap pointer	
 
 		#-----Set up game clock------#
 		addi $s5, $zero, 0				# s5 = global cycle counter
 
 move_block_across_screen:
-
+		
+		#-----Check collision with s0 platform-----#
 		add $a0, $zero, $s0
 		add $a1, $zero, $s3
 		jal detectCollisionBlockFoodSet # check platform collision with s3 FoodSet
 		add $a0, $zero, $v0
-		addi $a1, $zero, 1
-		bne $a0, $a1, check_neg_result1
-		jal colorHealthUp
-		j other_set_check
-		 #jal flashResult
-check_neg_result1:
-		addi $a1, $zero, -1
-		bne $v0, $a1, other_set_check
-		jal colorHealthDown 
-other_set_check:		
+		jal interpretCollision
+
 		add $a0, $zero, $s0
 		add $a1, $zero, $s4
 		jal detectCollisionBlockFoodSet # check platform collision with s4 FoodSet
 		add $a0, $zero, $v0
-		addi $a1, $zero, 1
-		bne $a0, $a1, check_neg_result2
-		jal colorHealthUp
-		j get_input
-		#jal flashResult
-check_neg_result2:
-		addi $a1, $zero, -1
-		bne $v0, $a1, get_input
-		jal colorHealthDown
-		
-get_input:	    
-		addi $t0, $zero, 0xffff0004
-	    	lw $a1, 0($t0)					# get keyboard input
+		jal interpretCollision
+
+		#-----Check collision with s1 platform-----#
+		add $a0, $zero, $s1
+		add $a1, $zero, $s3
+		jal detectCollisionBlockFoodSet # check platform collision with s3 FoodSet
+		add $a0, $zero, $v0
+		jal interpretCollision
+
+		add $a0, $zero, $s1
+		add $a1, $zero, $s4
+		jal detectCollisionBlockFoodSet # check platform collision with s4 FoodSet
+		add $a0, $zero, $v0
+		jal interpretCollision
+
+	    addi $t0, $zero, 0xffff0004
+	    lw $a0, 0($t0)					# get keyboard input
+	    jal storeKeyboardInput
+
 		add $a0, $zero, $s0
+		addi $a1, $zero, 0x1000000c
 		addi $a2, $zero, 0x0000ff00
 		addi $a3, $zero, 100			# key 1 = "d"
 		addi $v1, $zero, 97				# key 2 = "a"
 		jal Block_modify
 
-	    addi $t0, $zero, 0xffff0004
-	    lw $a1, 0($t0)					# get keyboard input
 		add $a0, $zero, $s1
+		addi $a1, $zero, 0x10000010
 		addi $a2, $zero, 0x00551a8b
 		addi $a3, $zero, 108			# key 1 = "l"
 		addi $v1, $zero, 106		    # key 2 = "j"
@@ -121,15 +117,15 @@ get_input:
 		jal FoodSet_modify
 
 move_block_across_screen_wait:
-		addi $a0, $zero, 50000			
+		addi $a0, $zero, 100			
 		jal wait  						# wait a number of cycles
 		addi $s5, $s5, 1				# increment global counter
 
 		j move_block_across_screen
 
 #--------#
-# a0 = 1 or -1
-flashResult:
+# a0 = food type
+interpretCollision:
 		addi $sp, $sp, -36
 		sw $ra, 0($sp)
 		sw $s0, 4($sp)
@@ -141,23 +137,41 @@ flashResult:
 		sw $s6, 28($sp)
 		sw $s7, 32($sp)
 
+		addi $s0, $zero, 0
+		addi $s1, $zero, 1
+		
+
+		bne $a0, $s0, interpretCollision_check2
+		addi $a0, $zero, 31
+		addi $a1, $zero, 7
+		addi $a2, $zero, 0x00228b22		# dark green
+		jal colorPixel
+		#jal colorHealthUp
+
+interpretCollision_check2:
+		bne $a0, $s1, interpretCollision_check3
+		addi $a0, $zero, 0
+		addi $a1, $zero, 7
+		addi $a2, $zero, 0x008b0000		# red
+		jal colorPixel
+		#jal colorHealthDown
+
+interpretCollision_check3:
+		addi $s2, $zero, 2
+		bne $a0, $s2, interpretCollision_end
+		jal eraseScreen					# erase screen
 		addi $t0, $zero, 1
-		addi $t1, $zero, -1
+		addi $t1, $zero, 0x10000000
+		lw $t2, 20($t1)					
+		bne $t2, $zero, interpretCollision_check3_makeZero # if flip screen = 1, then make flip screen = 0
+		sw $t0, 20($t1)									   # else, make flip screen = 1
+		j interpretCollision_end
 
-		bne $a0, $t0, flashResult_check2
-		addi $a0, $zero, 15
-		addi $a1, $zero, 4
-		addi $a2, $zero, 0x00228b22
-		jal colorPixel
+interpretCollision_check3_makeZero:
+		sw $zero, 20($t1)				
+		j interpretCollision_end
 
-flashResult_check2:
-		bne $a0, $t1, flashResult_end
-		addi $a0, $zero, 15
-		addi $a1, $zero, 4
-		addi $a2, $zero, 0x008b0000
-		jal colorPixel
-
-flashResult_end:  
+interpretCollision_end:  
 		lw $ra, 0($sp)
 		lw $s0, 4($sp)
 		lw $s1, 8($sp)
@@ -207,7 +221,7 @@ FoodSet_construct_food_loop:
 		jal fixXCoord
 		
 		add $a0, $zero, $v0 			# random x coord
-		jal getRandomZeroOrOne
+		jal getRandomZeroOrOneOrTwo
 		add $a1, $zero, $v0				# random type
 		jal Food_construct
 
@@ -461,7 +475,13 @@ Food_modify_pickColor_0:
 		j Food_modify_draw
 
 Food_modify_pickColor_1:
+		addi $t0, $zero, 1
+		bne $v0, $t0, Food_modify_pickColor_2
 		addi $a1, $zero, 0x00ffff00     # yellow
+		j Food_modify_draw
+
+Food_modify_pickColor_2:
+		addi $a1, $zero, 0x00ffa500		# orange
 		j Food_modify_draw
 #-------#
 
@@ -722,7 +742,7 @@ Block_draw:
 
 #--------------#
 
-# a0 = mem location of block, a1 = keyboard input, a2 = color, a3 = key 1 to look for, a4 = key 2 to look for
+# a0 = mem location of block, a1 = mem location of keyboard input, a2 = color, a3 = key 1 to look for, a4 = key 2 to look for
 Block_modify:
 		addi $sp, $sp, -36
 		sw $ra, 0($sp)
@@ -736,7 +756,7 @@ Block_modify:
 		sw $s7, 32($sp)
 
 		add $s0, $zero, $a0				# save mem location of block to s0 
-		add $s1, $zero, $a1				# save keyboard input to s1
+		lw $s1, 0($a1)					# save keyboard input to s1
 		add $s2, $zero, $a2				# s2 = color
 
 		add $a0, $zero, $s0
@@ -749,7 +769,6 @@ Block_modify:
 	    jal Block_getNumCols
 	    add $s6, $zero, $v0					# s6 = num of cols
 
-		# addi $t1, $zero, 100
 	    bne $s1, $a3, Block_modify_check2 # if keyboard input not equal to key 1, go to next check
 
 	    add $a0, $zero, $s3
@@ -763,7 +782,6 @@ Block_modify:
 		jal Block_moveRight
 
 Block_modify_check2:
-		# addi $t2, $zero, 97
 		bne $s1, $v1, Block_modify_draw # if keyboard input not equal to key 2, don't do anything
 
 		add $a0, $s3, $s6
@@ -821,7 +839,7 @@ getAddressFromCoordinate:
         add $s2, $zero, 0			# s2 = x counter
         add $s3, $zero, 0			# s3 = y counter
 
-        add $v0, $zero, 0x10010000	# v0 = output address
+        add $v0, $zero, 0x10008000	# v0 = output address
 
         blt $s2, $s0, getAddressFromCoordinate_xLoop
 		j getAddressFromCoordinate_xLoop_end
@@ -959,8 +977,8 @@ initVars:
 		sw $s6, 28($sp)
 		sw $s7, 32($sp)
 
-		addi $t0, $zero, 8
-		addi $t1, $zero, 16
+		addi $t0, $zero, 16
+		addi $t1, $zero, 32
 		addi $t2, $zero, 0x10000000
 		sw $t0, 0($t2)					# store screen height (in pixels)
 		sw $t1, 4($t2)					# store screen width (in pixels)
@@ -1020,22 +1038,23 @@ saveHeapPointer:
 		
 #------------#
 
-# right now, this just alternates between 0 and 1
-getRandomZeroOrOne:
+# right now, this just alternates between 0 and 1 and 2
+getRandomZeroOrOneOrTwo:
 		addi $t0, $zero, 0x10000000
 		lw $t1, 12($t0)
 
-		bne $t1, $zero, getRandomZeroOrOne_makeZero
+		addi $t2, $zero, 1
+		blt $t2, $t1, getRandomZeroOrOneOrTwo_makeZero	# if t1 > 1 (i.e. t1 >= 2) reset
 		addi $t1, $t1, 1
 
-getRandomZeroOrOne_return:
+getRandomZeroOrOneOrTwo_return:
 		sw $t1, 12($t0)
 		add $v0, $zero, $t1
 		jr $ra
 
-getRandomZeroOrOne_makeZero:
+getRandomZeroOrOneOrTwo_makeZero:
 		addi $t1, $zero, 0
-		j getRandomZeroOrOne_return
+		j getRandomZeroOrOneOrTwo_return
 		
 
 
@@ -1102,6 +1121,19 @@ colorRect:
 		add $s2, $zero, $a2				# s2 = num of rows
 		add $s3, $zero, $a3				# s3 = num of columns
 
+		jal checkIfOutOfBounds
+		bne $v0, $zero, colorRect_end	# if rectangle out of bounds, don't color it
+
+		addi $t0, $zero, 0x10000000
+		lw $t1, 20($t0)
+		addi $t2, $zero, 1
+		bne $t1, $t2, colorRect_init	# if flip screen = 0, continue as normal
+
+		jal getScreenHeight
+		sub $s1, $v0, $s1  			    # else, flip y coord
+		sub $s1, $s1, $s2 				# make it y coord of upper left corner
+
+colorRect_init:
 		add $a0, $zero, $s0
 		add $a1, $zero, $s1
 		jal getAddressFromCoordinate
@@ -1137,6 +1169,7 @@ colorRect_loopRow:
 
 		blt $s6, $s3, colorRect_loopCol # if column counter < num of cols, keep looping in loopCol
 
+colorRect_end:
 		lw $ra, 0($sp)					# else, done with colorRect
 		lw $s0, 4($sp)
 		lw $s1, 8($sp)
@@ -1258,7 +1291,7 @@ isCollision_end:
 		jr $ra
 
 #---------#
-# a0 = block (platform), a1 = FoodSet, v0 = 1 if platform hit a good type Food, -1 if platform hit a bad type Food, 0 if no collision
+# a0 = block (platform), a1 = FoodSet, v0 = if collision, type of Food hit; if no collision, -1
 detectCollisionBlockFoodSet:
 		addi $sp, $sp, -36
 		sw $ra, 0($sp)
@@ -1279,14 +1312,13 @@ detectCollisionBlockFoodSet:
 
 		addi $s2, $zero, 0			# s2 = counter
 
-		addi $s6, $zero, 0
+		addi $s6, $zero, -1			# set default value
 
 detectCollisionBlockFoodSet_loop:
 		add $a0, $zero, $s0
 		add $a1, $zero, $s3
 		jal isCollision
-		add $s6, $zero, $v0
-		bne $s6, $zero, detectCollisionBlockFoodSet_setOut # collision detected, set output
+		bne $v0, $zero, detectCollisionBlockFoodSet_setOut # collision detected, set output
 		
 		addi $s2, $s2, 1			# increment counter
 		addi $s0, $s0, 20			# increment by size of one Food object
@@ -1310,14 +1342,140 @@ detectCollisionBlockFoodSet_end:
 detectCollisionBlockFoodSet_setOut:
 		add $a0, $zero, $s0
 		jal Food_getType
-		bne $v0, $zero, detectCollisionBlockFoodSet_setOut_bad
-		addi $s6, $zero, 1
+		add $s6, $zero, $v0
 		j detectCollisionBlockFoodSet_end
 
-detectCollisionBlockFoodSet_setOut_bad:
-		addi $s6, $zero, -1
-		j detectCollisionBlockFoodSet_end
+#---------#
+# a0 = keyboard input
+storeKeyboardInput:
+		addi $sp, $sp, -36
+		sw $ra, 0($sp)
+		sw $s0, 4($sp)
+		sw $s1, 8($sp)
+		sw $s2, 12($sp)
+		sw $s3, 16($sp)
+		sw $s4, 20($sp)
+		sw $s5, 24($sp)
+		sw $s6, 28($sp)
+		sw $s7, 32($sp)
+
+		add $s0, $zero, $a0			# s0 = keyboard input
+		addi $s1, $zero, 100		# s1 = "d"
+		addi $s2, $zero, 97			# s2 = "a"
+		addi $s3, $zero, 108
+		addi $s4, $zero, 106
+		addi $s5, $zero, 0x10000000 
+
+		bne $s0, $s1, storeKeyboardInput_player1_check2
+		sw $s0, 12($s5)				# store player 1 input
+
+storeKeyboardInput_player1_check2:
+		bne $s0, $s2, storeKeyboardInput_player2_check1
+		sw $s0, 12($s5)				# store player 1 input
+
+storeKeyboardInput_player2_check1:
+		bne $s0, $s3, storeKeyboardInput_player2_check2
+		sw $s0, 16($s5)				# store player 2 input
+
+storeKeyboardInput_player2_check2:
+		bne $s0, $s4, storeKeyboardInput_end
+		sw $s0, 16($s5)				# store player 2 input
+
+storeKeyboardInput_end:
+		lw $ra, 0($sp)
+		lw $s0, 4($sp)
+		lw $s1, 8($sp)
+		lw $s2, 12($sp)
+		lw $s3, 16($sp)
+		lw $s4, 20($sp)
+		lw $s5, 24($sp)
+		lw $s6, 28($sp)
+		lw $s7, 32($sp)
+		addi $sp, $sp, 36
+
+		jr $ra
+
+#---------#
+eraseScreen:
+		addi $sp, $sp, -36
+		sw $ra, 0($sp)
+		sw $s0, 4($sp)
+		sw $s1, 8($sp)
+		sw $s2, 12($sp)
+		sw $s3, 16($sp)
+		sw $s4, 20($sp)
+		sw $s5, 24($sp)
+		sw $s6, 28($sp)
+		sw $s7, 32($sp)
+
+		jal getScreenHeight
+		add $s0, $zero, $v0			# s0 = screen height
+		jal getScreenWidth
+		add $s1, $zero, $v0			# s1 = screen width
+
+		addi $a0, $zero, 0
+		addi $a1, $zero, 0
+		add $a2, $zero, $s0
+		add $a3, $zero, $s1
+		addi $v1, $zero, 0x00000000
+		jal colorRect
 		
+		lw $ra, 0($sp)
+		lw $s0, 4($sp)
+		lw $s1, 8($sp)
+		lw $s2, 12($sp)
+		lw $s3, 16($sp)
+		lw $s4, 20($sp)
+		lw $s5, 24($sp)
+		lw $s6, 28($sp)
+		lw $s7, 32($sp)
+		addi $sp, $sp, 36
+
+		jr $ra
+
+#---------#
+
+# (currently assumes upper left corner is within bounds and only checks that block fits in screen vertically)
+# a0 = x coord of upper left corner, a1 = y coord of upper left corner, a2 = num of rows, a3 = num of columns, v0 = 0 if not out of bounds, 1 if so
+checkIfOutOfBounds:
+		addi $sp, $sp, -36
+		sw $ra, 0($sp)
+		sw $s0, 4($sp)
+		sw $s1, 8($sp)
+		sw $s2, 12($sp)
+		sw $s3, 16($sp)
+		sw $s4, 20($sp)
+		sw $s5, 24($sp)
+		sw $s6, 28($sp)
+		sw $s7, 32($sp)
+
+		add $s1, $zero, $a1			# s1 = y coord of upper left corner
+		add $s2, $zero, $a2			# s2 = num of rows
+
+		jal getScreenHeight
+		add $s0, $zero, $v0			# s0 = screen height
+
+		addi $v0, $zero, 0
+
+		add $t0, $s1, $s2
+		addi $t0, $t0, -1
+		blt $t0, $s0, checkIfOutOfBounds_end
+		addi $v0, $zero, 1
+
+checkIfOutOfBounds_end:
+		lw $ra, 0($sp)
+		lw $s0, 4($sp)
+		lw $s1, 8($sp)
+		lw $s2, 12($sp)
+		lw $s3, 16($sp)
+		lw $s4, 20($sp)
+		lw $s5, 24($sp)
+		lw $s6, 28($sp)
+		lw $s7, 32($sp)
+		addi $sp, $sp, 36
+
+		jr $ra
+
 colorHealthUp:
 		addi $sp, $sp, -36
 		sw $ra, 0($sp)
@@ -1401,7 +1559,3 @@ subtractrow:
 		addi $t2,$t2,-1
 		sw $t2, 4($s2)
 		j initColCount
-		
-
-		
-

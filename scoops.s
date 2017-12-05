@@ -3,15 +3,15 @@
 .text
 		.globl main
 
-# Bitmap display: 512 by 256 pixels, unit pixel width/height = 32, base address for display = 0x10008000
+# Bitmap display: 512 by 256 pixels, unit pixel width/height = 32, base address for display = 0x10000000
 
-# Global Mem:
-# 0x10000000 = screen row length
-# 0x10000004 = screen column length
-# 0x10000008 = pointer to end of heap
-# 0x1000000c = player 1 input
-# 0x10000010 = player 2 input
-# 0x10000014 = 1 if want screen flip, 0 otherwise
+# Static Mem:
+# 0x10010000 = screen row length
+# 0x10010004 = screen column length
+# 0x10010008 = pointer to end of heap
+# 0x1001000c = player 1 input
+# 0x10010010 = player 2 input
+# 0x10010014 = 1 if want screen flip, 0 otherwise
 
 main:
 		jal initVars					# initialize constants/global pointers
@@ -20,7 +20,7 @@ main:
 		addi $a0, $zero, 1				# set block num of rows (in pixels)
 		addi $a1, $zero, 3				# set block num of columns (in pixels)
 		addi $a2, $zero, 0		
-		addi $a3, $zero, 15   
+		addi $a3, $zero, 31   
 		jal Block_construct			    # construct block
 
 		#-----$s0 now refers to the block created above-----#
@@ -29,8 +29,8 @@ main:
 		#-----Instantiates a block object----#
 		addi $a0, $zero, 1				# set block num of rows (in pixels)
 		addi $a1, $zero, 3				# set block num of columns (in pixels)
-		addi $a2, $zero, 29		
-		addi $a3, $zero, 15   
+		addi $a2, $zero, 61		
+		addi $a3, $zero, 31   
 		jal Block_construct			    # construct block
 
 		#-----$s1 now refers to the block created above-----#
@@ -104,7 +104,7 @@ move_block_across_screen:
 		addi $a1, $zero, 1
 		add $a2, $zero, $s3
 		addi $a3, $zero, 115			# key = "s"
-		addi $v1, $zero, 0x1000000c
+		addi $v1, $zero, 0x1001000c
 		jal fireLaser
 
 		#--s4 FoodSet--#
@@ -112,7 +112,7 @@ move_block_across_screen:
 		addi $a1, $zero, 1
 		add $a2, $zero, $s4
 		addi $a3, $zero, 115		 	# key = "s"
-		addi $v1, $zero, 0x1000000c
+		addi $v1, $zero, 0x1001000c
 		jal fireLaser
 
 		#-----s1 platform laser-----#
@@ -122,7 +122,7 @@ move_block_across_screen:
 		addi $a1, $zero, 1
 		add $a2, $zero, $s3
 		addi $a3, $zero, 107			# key = "k"
-		addi $v1, $zero, 0x10000010
+		addi $v1, $zero, 0x10010010
 		jal fireLaser
 
 		#--s4 FoodSet--#
@@ -130,18 +130,18 @@ move_block_across_screen:
 		addi $a1, $zero, 1
 		add $a2, $zero, $s4
 		addi $a3, $zero, 107			# key = "k"
-		addi $v1, $zero, 0x10000010
+		addi $v1, $zero, 0x10010010
 		jal fireLaser
 
 		add $a0, $zero, $s0
-		addi $a1, $zero, 0x1000000c
+		addi $a1, $zero, 0x1001000c
 		addi $a2, $zero, 0x0000ff00
 		addi $a3, $zero, 100			# key 1 = "d"
 		addi $v1, $zero, 97				# key 2 = "a"
 		jal Block_modify
 
 		add $a0, $zero, $s1
-		addi $a1, $zero, 0x10000010
+		addi $a1, $zero, 0x10010010
 		addi $a2, $zero, 0x00551a8b
 		addi $a3, $zero, 108			# key 1 = "l"
 		addi $v1, $zero, 106		    # key 2 = "j"
@@ -270,7 +270,7 @@ interpretCollision_check3:
 										# food type = 2
 		jal eraseScreen					# erase screen
 		addi $t0, $zero, 1
-		addi $t1, $zero, 0x10000000
+		addi $t1, $zero, 0x10010000
 		lw $t2, 20($t1)					
 		bne $t2, $zero, interpretCollision_check3_makeZero # if flip screen = 1, then make flip screen = 0
 		sw $t0, 20($t1)									   # else, make flip screen = 1
@@ -492,7 +492,7 @@ FoodSet_construct:
 		sw $s6, 28($sp)
 		sw $s7, 32($sp)
 
-		addi $t0, $zero, 0x10000000
+		addi $t0, $zero, 0x10010000
 		lw $s1, 8($t0)					# get heap pointer
 
 		add $s4, $zero, $s1				# s4 = initial heap pointer
@@ -523,7 +523,7 @@ FoodSet_construct_food_loop:
 		addi $s0, $s0, 1
 		blt $s0, $s3, FoodSet_construct_food_loop
 
-		addi $t0, $zero, 0x10000000
+		addi $t0, $zero, 0x10010000
 		sw $s1, 8($t0)					# save heap pointer
 
 		add $v0, $zero, $s4				# save mem address of FallingSet
@@ -828,7 +828,7 @@ Block_construct:							# acts as the "constructor" for the block object
 		sw $s6, 28($sp)
 		sw $s7, 32($sp)
 
-		addi $t0, $zero, 0x10000000
+		addi $t0, $zero, 0x10010000
 		lw $t1, 8($t0)					# get heap pointer
 
 		sw $a0, 0($t1)					# save attributes in mem address
@@ -1160,7 +1160,7 @@ getAddressFromCoordinate:
         add $s2, $zero, 0			# s2 = x counter
         add $s3, $zero, 0			# s3 = y counter
 
-        add $v0, $zero, 0x10008000	# v0 = output address
+        add $v0, $zero, 0x10000000	# v0 = output address
 
         blt $s2, $s0, getAddressFromCoordinate_xLoop
 		j getAddressFromCoordinate_xLoop_end
@@ -1298,9 +1298,9 @@ initVars:
 		sw $s6, 28($sp)
 		sw $s7, 32($sp)
 
-		addi $t0, $zero, 16
-		addi $t1, $zero, 32
-		addi $t2, $zero, 0x10000000
+		addi $t0, $zero, 32
+		addi $t1, $zero, 64
+		addi $t2, $zero, 0x10010000
 		sw $t0, 0($t2)					# store screen height (in pixels)
 		sw $t1, 4($t2)					# store screen width (in pixels)
 
@@ -1326,7 +1326,7 @@ initVars:
 #------------#
 
 getScreenHeight:
-		addi $t0, $zero, 0x10000000
+		addi $t0, $zero, 0x10010000
 		lw $v0, 0($t0)
 
 		jr $ra
@@ -1334,7 +1334,7 @@ getScreenHeight:
 #------------#
 
 getScreenWidth:
-		addi $t0, $zero, 0x10000000
+		addi $t0, $zero, 0x10010000
 		lw $v0, 4($t0)
 
 		jr $ra
@@ -1342,7 +1342,7 @@ getScreenWidth:
 #------------#
 
 getHeapPointer:
-		addi $t0, $zero, 0x10000000
+		addi $t0, $zero, 0x10010000
 		lw $v0, 8($t0)					# get heap pointer
 
 		jr $ra
@@ -1352,7 +1352,7 @@ getHeapPointer:
 
 # a0 = heap pointer to save
 saveHeapPointer:
-		addi $t0, $zero, 0x10000000
+		addi $t0, $zero, 0x10010000
 		sw $a0, 8($t0)					# save heap pointer
 
 		jr $ra
@@ -1361,7 +1361,7 @@ saveHeapPointer:
 
 # right now, this just alternates between 0 and 1 and 2
 getRandomZeroOrOneOrTwo:
-		addi $t0, $zero, 0x10000000
+		addi $t0, $zero, 0x10010000
 		lw $t1, 12($t0)
 
 		addi $t2, $zero, 1
@@ -1453,7 +1453,7 @@ colorRect_init_continue:
 		jal checkIfOutOfBounds
 		bne $v0, $zero, colorRect_end	# if rectangle out of bounds, don't color it
 
-		addi $t0, $zero, 0x10000000
+		addi $t0, $zero, 0x10010000
 		lw $t1, 20($t0)
 		addi $t2, $zero, 1
 		bne $t1, $t2, colorRect_init	# if flip screen = 0, continue as normal
@@ -1698,7 +1698,7 @@ storeKeyboardInput:
 		addi $s2, $zero, 97			# s2 = "a"
 		addi $s3, $zero, 108
 		addi $s4, $zero, 106
-		addi $s5, $zero, 0x10000000 
+		addi $s5, $zero, 0x10010000 
 
 		addi $s6, $zero, 115
 		addi $s7, $zero, 107

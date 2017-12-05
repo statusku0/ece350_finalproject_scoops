@@ -36,6 +36,7 @@ main:
 		#-----$s1 now refers to the block created above-----#
 		add $s1, $zero, $v0 			# save block mem location
 
+		#-----Instantiates FoodSet objects----#
 		addi $a0, $zero, 4
 		jal FoodSet_construct
 
@@ -46,6 +47,16 @@ main:
 
 		add $s4, $zero, $v0
 
+		#----Instantiates healthBar objects---#
+		addi $a0, $zero, 0
+		addi $a1, $zero, 0x007fff00		# chartreuse green
+		jal healthBar_construct
+		add $s2, $zero, $v0				# s2 = health bar for player 1
+
+		addi $a0, $zero, 31
+		addi $a1, $zero, 0x004b0082		# indigo
+		jal healthBar_construct
+		add $s6, $zero, $v0				# s6 = health bar for player 2
 
 		#-----Set up game clock------#
 		addi $s5, $zero, 0				# s5 = global cycle counter
@@ -57,12 +68,14 @@ move_block_across_screen:
 		add $a1, $zero, $s3
 		jal detectCollisionBlockFoodSet # check platform collision with s3 FoodSet
 		add $a0, $zero, $v0
+		add $a1, $zero, $s2
 		jal interpretCollision
 
 		add $a0, $zero, $s0
 		add $a1, $zero, $s4
 		jal detectCollisionBlockFoodSet # check platform collision with s4 FoodSet
 		add $a0, $zero, $v0
+		add $a1, $zero, $s2
 		jal interpretCollision
 
 		#-----Check collision with s1 platform-----#
@@ -70,12 +83,14 @@ move_block_across_screen:
 		add $a1, $zero, $s3
 		jal detectCollisionBlockFoodSet # check platform collision with s3 FoodSet
 		add $a0, $zero, $v0
+		add $a1, $zero, $s6
 		jal interpretCollision
 
 		add $a0, $zero, $s1
 		add $a1, $zero, $s4
 		jal detectCollisionBlockFoodSet # check platform collision with s4 FoodSet
 		add $a0, $zero, $v0
+		add $a1, $zero, $s6
 		jal interpretCollision
 
 	    addi $t0, $zero, 0xffff0004
@@ -99,6 +114,11 @@ move_block_across_screen:
 		add $a0, $zero, $s3
 		jal FoodSet_modify
 
+		add $a0, $zero, $s2
+		jal healthBar_draw
+		add $a0, $zero, $s6
+		jal healthBar_draw
+
 		addi $t0, $zero, 5
 		blt $s5, $t0, move_block_across_screen_wait
 
@@ -106,14 +126,14 @@ move_block_across_screen:
 		jal FoodSet_modify
 
 move_block_across_screen_wait:
-		addi $a0, $zero, 100			
+		addi $a0, $zero, 1			
 		jal wait  						# wait a number of cycles
 		addi $s5, $s5, 1				# increment global counter
 
 		j move_block_across_screen
 
 #--------#
-# a0 = food type
+# a0 = food type, a1 = healthBar
 interpretCollision:
 		addi $sp, $sp, -36
 		sw $ra, 0($sp)
@@ -130,21 +150,25 @@ interpretCollision:
 		addi $s1, $zero, 1
 		addi $s2, $zero, 2
 
-		bne $a0, $s0, interpretCollision_check2
-		addi $a0, $zero, 31
-		addi $a1, $zero, 7
-		addi $a2, $zero, 0x00228b22		# dark green
-		jal colorPixel
+		add $s3, $zero, $a0				# s3 = food type
+		add $s4, $zero, $a1				# s4 = healthBar
+
+		bne $s3, $s0, interpretCollision_check2
+		add $a0, $zero, $s4			    # food type = 0
+		add $a1, $zero, 1
+		jal healthBar_modify
+		j interpretCollision_end
 
 interpretCollision_check2:
-		bne $a0, $s1, interpretCollision_check3
-		addi $a0, $zero, 0
-		addi $a1, $zero, 7
-		addi $a2, $zero, 0x008b0000		# red
-		jal colorPixel
+		bne $s3, $s1, interpretCollision_check3
+		add $a0, $zero, $s4			    # food type = 1
+		add $a1, $zero, -1
+		jal healthBar_modify
+		j interpretCollision_end
 
 interpretCollision_check3:
-		bne $a0, $s2, interpretCollision_end
+		bne $s3, $s2, interpretCollision_end
+										# food type = 2
 		jal eraseScreen					# erase screen
 		addi $t0, $zero, 1
 		addi $t1, $zero, 0x10000000
@@ -171,6 +195,189 @@ interpretCollision_end:
 
 		jr $ra
 
+#------healthBar OBJECT METHODS-----#
+# a0 = starting column, a1 = color
+healthBar_construct:
+		addi $sp, $sp, -36
+		sw $ra, 0($sp)
+		sw $s0, 4($sp)
+		sw $s1, 8($sp)
+		sw $s2, 12($sp)
+		sw $s3, 16($sp)
+		sw $s4, 20($sp)
+		sw $s5, 24($sp)
+		sw $s6, 28($sp)
+		sw $s7, 32($sp)
+
+		jal getHeapPointer
+		add $s0, $zero, $v0			# s0 = mem location of healthBar
+
+		sw $a0, 0($s0)
+		sw $a1, 8($s0)
+
+		jal getScreenHeight
+		sw $v0, 4($s0)				# initialize height to screen height
+
+		addi $t0, $s0, 12
+		add $a0, $zero, $t0
+		jal saveHeapPointer
+
+		add $v0, $zero, $s0			# output mem location
+
+		lw $ra, 0($sp)
+		lw $s0, 4($sp)
+		lw $s1, 8($sp)
+		lw $s2, 12($sp)
+		lw $s3, 16($sp)
+		lw $s4, 20($sp)
+		lw $s5, 24($sp)
+		lw $s6, 28($sp)
+		lw $s7, 32($sp)
+		addi $sp, $sp, 36
+
+		jr $ra
+		
+
+#-------#
+# a0 = healthBar, v0 = starting column
+healthBar_getStartingColumn:
+		lw $v0, 0($a0)
+		jr $ra
+
+#------#
+# a0 = healthBar, v0 = height
+healthBar_getHeight:
+		lw $v0, 4($a0)
+		jr $ra
+
+#------#
+# a0 = healthBar, v0 = color
+healthBar_getColor:
+		lw $v0, 8($a0)
+		jr $ra
+
+#------#
+# a0 = healthBar, a1 = amount to add to height
+healthBar_addToHeight:
+		addi $sp, $sp, -36
+		sw $ra, 0($sp)
+		sw $s0, 4($sp)
+		sw $s1, 8($sp)
+		sw $s2, 12($sp)
+		sw $s3, 16($sp)
+		sw $s4, 20($sp)
+		sw $s5, 24($sp)
+		sw $s6, 28($sp)
+		sw $s7, 32($sp)
+
+		jal getScreenHeight
+		lw $t0, 4($a0)
+		add $t0, $t0, $a1
+		blt $v0, $t0, healthBar_addToHeight_end  # if new height > screen height, don't change height
+		sw $t0, 4($a0)
+
+healthBar_addToHeight_end:
+		lw $ra, 0($sp)
+		lw $s0, 4($sp)
+		lw $s1, 8($sp)
+		lw $s2, 12($sp)
+		lw $s3, 16($sp)
+		lw $s4, 20($sp)
+		lw $s5, 24($sp)
+		lw $s6, 28($sp)
+		lw $s7, 32($sp)
+		addi $sp, $sp, 36
+
+		jr $ra
+
+
+#------#
+# a0 = healthBar, a1 = amount to add to height
+healthBar_modify:
+		addi $sp, $sp, -36
+		sw $ra, 0($sp)
+		sw $s0, 4($sp)
+		sw $s1, 8($sp)
+		sw $s2, 12($sp)
+		sw $s3, 16($sp)
+		sw $s4, 20($sp)
+		sw $s5, 24($sp)
+		sw $s6, 28($sp)
+		sw $s7, 32($sp)
+
+		add $s0, $zero, $a0				# s0 = healthBar
+		jal healthBar_addToHeight
+
+		add $a0, $zero, $s0
+		jal healthBar_draw
+
+		lw $ra, 0($sp)
+		lw $s0, 4($sp)
+		lw $s1, 8($sp)
+		lw $s2, 12($sp)
+		lw $s3, 16($sp)
+		lw $s4, 20($sp)
+		lw $s5, 24($sp)
+		lw $s6, 28($sp)
+		lw $s7, 32($sp)
+		addi $sp, $sp, 36
+
+		jr $ra
+
+
+#--------#
+# a0 = healthBar
+healthBar_draw:
+		addi $sp, $sp, -36
+		sw $ra, 0($sp)
+		sw $s0, 4($sp)
+		sw $s1, 8($sp)
+		sw $s2, 12($sp)
+		sw $s3, 16($sp)
+		sw $s4, 20($sp)
+		sw $s5, 24($sp)
+		sw $s6, 28($sp)
+		sw $s7, 32($sp)
+
+		add $s0, $zero, $a0				# s0 = healthBar
+
+		add $a0, $zero, $s0
+		jal healthBar_getStartingColumn
+		add $s1, $zero, $v0				# s1 = starting column
+		jal healthBar_getHeight
+		add $s2, $zero, $v0 			# s2 = height
+		jal healthBar_getColor
+		add $s4, $zero, $v0				# s4 = color
+
+		jal getScreenHeight
+		sub $s3, $v0, $s2 				# s3 = screen height - health bar height
+
+		add $a0, $zero, $s1
+		add $a1, $zero, $s3
+		add $a2, $zero, $s2
+		addi $a3, $zero, 1
+		add $v1, $zero, $s4
+		jal colorRect
+
+		add $a0, $zero, $s1
+		addi $a1, $zero, 0
+		add $a2, $zero, $s3
+		addi $a3, $zero, 1
+		addi $v1, $zero, 0x00000000
+		jal colorRect 				 	# erase part above health bar
+
+		lw $ra, 0($sp)
+		lw $s0, 4($sp)
+		lw $s1, 8($sp)
+		lw $s2, 12($sp)
+		lw $s3, 16($sp)
+		lw $s4, 20($sp)
+		lw $s5, 24($sp)
+		lw $s6, 28($sp)
+		lw $s7, 32($sp)
+		addi $sp, $sp, 36
+
+		jr $ra		
 #------FOODSET OBJECT METHODS------#
 
 # a0 = number of objects in set, v0 = mem location of FoodSet, v1 = size of FoodSet
@@ -1107,6 +1314,14 @@ colorRect:
 		add $s2, $zero, $a2				# s2 = num of rows
 		add $s3, $zero, $a3				# s3 = num of columns
 
+		bne $s2, $zero, colorRect_init_check2
+		j colorRect_end
+
+colorRect_init_check2:
+		bne $s3, $zero, colorRect_init_continue
+		j colorRect_end
+
+colorRect_init_continue:
 		jal checkIfOutOfBounds
 		bne $v0, $zero, colorRect_end	# if rectangle out of bounds, don't color it
 

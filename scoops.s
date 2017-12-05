@@ -93,9 +93,45 @@ move_block_across_screen:
 		add $a1, $zero, $s6
 		jal interpretCollision
 
-	    addi $t0, $zero, 0xffff0004
+		addi $t0, $zero, 0xffff0004
 	    lw $a0, 0($t0)					# get keyboard input
 	    jal storeKeyboardInput
+
+		#-----s0 platform laser-----#
+
+		#--s3 FoodSet--#
+		add $a0, $zero, $s0
+		addi $a1, $zero, 1
+		add $a2, $zero, $s3
+		addi $a3, $zero, 115			# key = "s"
+		addi $v1, $zero, 0x1000000c
+		jal fireLaser
+
+		#--s4 FoodSet--#
+		add $a0, $zero, $s0
+		addi $a1, $zero, 1
+		add $a2, $zero, $s4
+		addi $a3, $zero, 115		 	# key = "s"
+		addi $v1, $zero, 0x1000000c
+		jal fireLaser
+
+		#-----s1 platform laser-----#
+
+		#--s3 FoodSet--#
+		add $a0, $zero, $s1
+		addi $a1, $zero, 1
+		add $a2, $zero, $s3
+		addi $a3, $zero, 107			# key = "k"
+		addi $v1, $zero, 0x10000010
+		jal fireLaser
+
+		#--s4 FoodSet--#
+		add $a0, $zero, $s1
+		addi $a1, $zero, 1
+		add $a2, $zero, $s4
+		addi $a3, $zero, 107			# key = "k"
+		addi $v1, $zero, 0x10000010
+		jal fireLaser
 
 		add $a0, $zero, $s0
 		addi $a1, $zero, 0x1000000c
@@ -126,11 +162,74 @@ move_block_across_screen:
 		jal FoodSet_modify
 
 move_block_across_screen_wait:
-		addi $a0, $zero, 1			
+		addi $a0, $zero, 50000			
 		jal wait  						# wait a number of cycles
 		addi $s5, $s5, 1				# increment global counter
 
 		j move_block_across_screen
+
+#--------#
+# a0 = platform, a1 = location of laser on platform, a2 = FoodSet, a3 = activation key, v1 (input) = mem location of key input
+fireLaser:
+		addi $sp, $sp, -36
+		sw $ra, 0($sp)
+		sw $s0, 4($sp)
+		sw $s1, 8($sp)
+		sw $s2, 12($sp)
+		sw $s3, 16($sp)
+		sw $s4, 20($sp)
+		sw $s5, 24($sp)
+		sw $s6, 28($sp)
+		sw $s7, 32($sp)
+
+		lw $t0, 0($v1)
+		bne $a3, $t0, fireLaser_end     # if key doesn't match activation key, skip to end
+
+		lw $t0, 8($a0)					# t0 = x coord of upper left corner of platform
+		add $s0, $t0, $a1				# s0 = x coord of laser
+
+		add $s1, $zero, $a2				# s1 = (temp) mem location of FoodSet
+		lw $s2, 0($s1)				    # s2 = number of Food objects
+		addi $s1, $s1, 4			    # s1 = mem location of Food objects
+
+		addi $s3, $zero, 0				# s3 = counter
+
+	    add $a0, $zero, $s0
+	    addi $a1, $zero, 2
+	    jal getScreenHeight
+	    addi $a2, $v0, -2
+	    addi $a3, $zero, 1
+	    addi $v1, $zero, 0x00ffffff
+	    jal colorRect 					# create white rectangle representing laser
+
+fireLaser_FoodSet_loop:
+		add $a0, $zero, $s1
+		jal Block_getXCoordUpperLeft
+		bne $v0, $s0, fireLaser_FoodSet_loop_increment
+		
+		add $a0, $zero, $s1 			# if Food lines up with laser, set invisible
+		jal Food_setInvisible		
+		
+fireLaser_FoodSet_loop_increment:
+		addi $s3, $s3, 1				# increment counter
+		addi $s1, $s1, 24				# increment by size of one Food object
+		blt $s3, $s2, fireLaser_FoodSet_loop
+
+fireLaser_end:
+		lw $ra, 0($sp)
+		lw $s0, 4($sp)
+		lw $s1, 8($sp)
+		lw $s2, 12($sp)
+		lw $s3, 16($sp)
+		lw $s4, 20($sp)
+		lw $s5, 24($sp)
+		lw $s6, 28($sp)
+		lw $s7, 32($sp)
+		addi $sp, $sp, 36
+
+		jr $ra
+
+		
 
 #--------#
 # a0 = food type, a1 = healthBar
@@ -475,10 +574,13 @@ FoodSet_reset_loop:
 		jal fixXCoord
 		add $a0, $zero, $s0
 		add $a1, $zero, $v0
-		jal Block_saveXCoordUpperLeft # re-randomize x coord			
+		jal Block_saveXCoordUpperLeft # re-randomize x coord
+
+		add $a0, $zero, $s0
+		jal Food_setVisible  		# set Food to be visible			
 		
 		addi $s2, $s2, 1			# increment counter
-		addi $s0, $s0, 20			# increment by size of one Food object
+		addi $s0, $s0, 24			# increment by size of one Food object
 		blt $s2, $s1, FoodSet_reset_loop
 
 		lw $ra, 0($sp)
@@ -524,7 +626,7 @@ FoodSet_modify_Food_modify_loop:
 		jal Food_modify
 		
 		addi $s2, $s2, 1			# increment counter
-		addi $s0, $s0, 20			# increment by size of one Food object
+		addi $s0, $s0, 24			# increment by size of one Food object
 		blt $s2, $s1, FoodSet_modify_Food_modify_loop
 
 		lw $ra, 0($sp)
@@ -584,12 +686,13 @@ Food_construct:
 
 		jal getHeapPointer	
 		sw $s0, 0($v0)				# save type
-		addi $v0, $v0, 4			# increment heap pointer
+									# invisible set to 0
+		addi $v0, $v0, 8			# increment heap pointer
 		add $a0, $zero, $v0
 		jal saveHeapPointer
 
 		add $v0, $zero, $s1
-		addi $v1, $s2, 4
+		addi $v1, $s2, 8
 
 		lw $ra, 0($sp)
 		lw $s0, 4($sp)
@@ -648,8 +751,13 @@ Food_modify:
 
 Food_modify_draw:
 		add $a0, $zero, $s0
+		jal Food_isInvisible
+		bne $v0, $zero, Food_modify_end # if food is not visible, then go to end
+
+		add $a0, $zero, $s0
 		jal Block_draw 					# draw new block
 
+Food_modify_end:
 		lw $ra, 0($sp)
 		lw $s0, 4($sp)
 		lw $s1, 8($sp)
@@ -684,6 +792,26 @@ Food_getType:
 		jr $ra
 
 
+#-------#
+# a0 = mem location of Food
+Food_setInvisible:
+		addi $t0, $zero, 1
+		sw $t0, 20($a0)
+		jr $ra
+
+#------#
+# a0 = mem location of Food
+Food_setVisible:
+		addi $t0, $zero, 0
+		sw $t0, 20($a0)
+		jr $ra
+
+#------#
+# a0 = mem location of Food
+Food_isInvisible:
+		lw $v0, 20($a0)
+		jr $ra
+		
 
 #------BLOCK OBJECT METHODS-----#
 
@@ -1506,7 +1634,7 @@ detectCollisionBlockFoodSet:
 		sw $s7, 32($sp)
 
 		add $s3, $zero, $a0			# s3 = block (platform)
-		add $s0, $zero, $a1			# s0 = mem location of FoodSet
+		add $s0, $zero, $a1			# s0 = (temp) mem location of FoodSet
 		add $s5, $zero, $s0			# s5 = s0
 		lw $s1, 0($s0)				# s1 = number of Food objects
 		addi $s0, $s0, 4			# s0 = mem location of Food objects
@@ -1517,12 +1645,17 @@ detectCollisionBlockFoodSet:
 
 detectCollisionBlockFoodSet_loop:
 		add $a0, $zero, $s0
+		jal Food_isInvisible
+		bne $v0, $zero, detectCollisionBlockFoodSet_loop_increment # if food is invisible, then skip
+
+		add $a0, $zero, $s0
 		add $a1, $zero, $s3
 		jal isCollision
 		bne $v0, $zero, detectCollisionBlockFoodSet_setOut # collision detected, set output
-		
+
+detectCollisionBlockFoodSet_loop_increment:
 		addi $s2, $s2, 1			# increment counter
-		addi $s0, $s0, 20			# increment by size of one Food object
+		addi $s0, $s0, 24			# increment by size of one Food object
 		blt $s2, $s1, detectCollisionBlockFoodSet_loop
 
 detectCollisionBlockFoodSet_end:
@@ -1567,6 +1700,9 @@ storeKeyboardInput:
 		addi $s4, $zero, 106
 		addi $s5, $zero, 0x10000000 
 
+		addi $s6, $zero, 115
+		addi $s7, $zero, 107
+
 		bne $s0, $s1, storeKeyboardInput_player1_check2
 		sw $s0, 12($s5)				# store player 1 input
 
@@ -1579,7 +1715,15 @@ storeKeyboardInput_player2_check1:
 		sw $s0, 16($s5)				# store player 2 input
 
 storeKeyboardInput_player2_check2:
-		bne $s0, $s4, storeKeyboardInput_end
+		bne $s0, $s4, storeKeyboardInput_player1_check3
+		sw $s0, 16($s5)				# store player 2 input
+
+storeKeyboardInput_player1_check3:
+		bne $s0, $s6, storeKeyboardInput_player2_check3
+		sw $s0, 12($s5)				# store player 1 input
+
+storeKeyboardInput_player2_check3:
+		bne $s0, $s7, storeKeyboardInput_end
 		sw $s0, 16($s5)				# store player 2 input
 
 storeKeyboardInput_end:
